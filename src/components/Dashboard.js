@@ -1,40 +1,50 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 import CreateBooking from './CreateBooking';
-import BookingList from './BookingList'; // <--- Import the new component
+import BookingList from './BookingList';
+import '../App.css';
 
 const Dashboard = () => {
-    return (
-        <div className="container mt-4">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2 className="text-danger">Dispatcher Command Center</h2>
-                <button className="btn btn-outline-secondary" onClick={() => window.location.href='/'}>Logout</button>
-            </div>
-            
-            <div className="row">
-                <div className="col-md-4">
-                    {/* Left Side: Form */}
-                    <CreateBooking />
-                </div>
-                
-                <div className="col-md-8">
-                    <div className="row">
-                        <div className="col-md-12 mb-4">
-                            {/* Top Right: Map Placeholder */}
-                            <div className="card shadow p-4 bg-light text-center" style={{height: '300px'}}>
-                                <h4 className="mt-5 text-muted">Google Maps Integration</h4>
-                                <p>Live fleet tracking will be displayed here.</p>
-                            </div>
-                        </div>
-                        
-                        <div className="col-md-12">
-                            {/* Bottom Right: The Real List */}
-                            <BookingList /> 
-                        </div>
-                    </div>
-                </div>
-            </div>
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1>Dispatcher Command Center</h1>
+        <button onClick={handleLogout} className="logout-btn">Logout</button>
+      </div>
+
+      <div className="dashboard-grid">
+        {/* Left Column: Create Form */}
+        <div className="left-column">
+          <CreateBooking />
         </div>
-    );
+
+        {/* Right Column: Maps & List */}
+        <div className="right-column">
+          {/* Map Placeholder Card */}
+          <div className="panel" style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
+             <div style={{textAlign: 'center', color: '#777'}}>
+                <h3>Google Maps Integration</h3>
+                <p>Live fleet tracking will be displayed here.</p>
+             </div>
+          </div>
+
+          {/* Active Incidents List */}
+          <div className="panel">
+            <h2>Active Incidents</h2>
+            <BookingList />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default Dashboard;

@@ -1,53 +1,56 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import '../App.css'; 
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        try {
-            // Note: localhost works for Web-to-Backend
-            const response = await axios.post('http://localhost:5000/login', {
-                email: email,
-                password: password
-            });
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      navigate('/dashboard');
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (response.data.status === 'success') {
-                if (response.data.role === 'dispatcher') {
-                    navigate('/dashboard');
-                } else {
-                    setError('Access Denied: Drivers cannot access this dashboard.');
-                }
-            }
-        } catch (err) {
-            setError('Login failed. Check credentials.');
-        }
-    };
-
-    return (
-        <div className="container d-flex justify-content-center align-items-center vh-100">
-            <div className="card p-4 shadow" style={{ width: '400px' }}>
-                <h3 className="text-center text-danger mb-4">Dispatcher Portal</h3>
-                {error && <div className="alert alert-danger">{error}</div>}
-                <form onSubmit={handleLogin}>
-                    <div className="mb-3">
-                        <label>Email</label>
-                        <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                    </div>
-                    <div className="mb-3">
-                        <label>Password</label>
-                        <input type="password" className="form-control" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                    </div>
-                    <button type="submit" className="btn btn-danger w-100">Login</button>
-                </form>
-            </div>
-        </div>
-    );
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Dispatcher Portal</h2>
+        <form onSubmit={handleLogin}>
+          <div className="form-group">
+            <label>Email</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+            />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+            />
+          </div>
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default Login;
