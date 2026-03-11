@@ -1,17 +1,38 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import CreateBooking from './CreateBooking';
 import BookingList from './BookingList';
+import MapComponent from './MapComponent';
+import AddDriver from './AddDriver'; // 1. Import your new component
 import '../App.css';
+
+const libraries = ['places'];
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const mapRef = useRef(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo",
+    libraries: libraries
+  });
+
+  const handleMoveMap = (lat, lng) => {
+    if (mapRef.current) {
+      mapRef.current.panTo({ lat, lng });
+      mapRef.current.setZoom(16);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
   };
+
+  if (!isLoaded) return <div>Initialising Systems...</div>;
 
   return (
     <div className="dashboard-container">
@@ -21,22 +42,24 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        {/* Left Column: Create Form */}
+        {/* LEFT COLUMN: All Data Entry Forms */}
         <div className="left-column">
-          <CreateBooking />
-        </div>
-
-        {/* Right Column: Maps & List */}
-        <div className="right-column">
-          {/* Map Placeholder Card */}
-          <div className="panel" style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
-             <div style={{textAlign: 'center', color: '#777'}}>
-                <h3>Google Maps Integration</h3>
-                <p>Live fleet tracking will be displayed here.</p>
-             </div>
+          <div className="panel">
+            <CreateBooking onBookingCreated={handleMoveMap} />
           </div>
 
-          {/* Active Incidents List */}
+          {/* 2. Dedicated Fleet Management Section */}
+          <div className="panel" style={{ marginTop: '20px' }}>
+            <AddDriver />
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Live Map and Incident Monitoring */}
+        <div className="right-column">
+          <div className="panel" style={{ height: '500px', padding: '0', overflow: 'hidden' }}>
+             <MapComponent onMapLoad={(map) => (mapRef.current = map)} /> 
+          </div>
+
           <div className="panel">
             <h2>Active Incidents</h2>
             <BookingList />
