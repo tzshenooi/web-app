@@ -14,51 +14,69 @@ const CreateBooking = ({ onBookingCreated }) => {
   const [nearestDriver, setNearestDriver] = useState(null);
   const autocompleteRef = useRef(null);
 
-  // Haversine Formula for distance calculation
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; 
   };
 
-  const findNearestAmbulance = async (patientLat, patientLng) => {
-    const { data: drivers } = await supabase.from('drivers').select('*').eq('status', 'Available');
+  const findNearestAmbulance = async (targetLat, targetLng) => {
+    console.log("--- SMART DISPATCH CHECK ---");
     
-    if (drivers && drivers.length > 0) {
-      let closest = null;
-      let minDistance = Infinity;
+    const { data: drivers, error } = await supabase.from('drivers').select('*');
+    
+    if (error || !drivers) return;
 
-      drivers.forEach(driver => {
-        if (driver.current_lat && driver.current_lng) {
-          const dist = calculateDistance(patientLat, patientLng, driver.current_lat, driver.current_lng);
-          if (dist < minDistance) {
-            minDistance = dist;
-            closest = { ...driver, distance: dist.toFixed(2) };
-          }
+    let closest = null;
+    let minDistance = Infinity;
+
+    drivers.forEach(driver => {
+      // .trim() removes any accidental spaces like "Available "
+      const statusClean = (driver.status || "").trim().toLowerCase();
+      const isAvailable = statusClean === 'available';
+      const hasLocation = driver.current_lat !== null && driver.current_lng !== null;
+
+      if (isAvailable && hasLocation) {
+        const dist = calculateDistance(targetLat, targetLng, driver.current_lat, driver.current_lng);
+        console.log(`✅ ${driver.name} is available and ${dist.toFixed(2)} km away.`);
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          closest = { ...driver, distance: dist.toFixed(2) };
         }
-      });
-      setNearestDriver(closest);
-    }
+      } else {
+        console.log(`❌ Skipping ${driver.name}: [Available: ${isAvailable}] [HasLocation: ${hasLocation}] (Status in DB: "${driver.status}")`);
+      }
+    });
+
+    setNearestDriver(closest);
   };
 
   const onPlaceChanged = () => {
     const place = autocompleteRef.current.getPlace();
-    if (place.geometry) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      setFormData({ ...formData, location: place.formatted_address, lat, lng });
-      findNearestAmbulance(lat, lng);
+    if (place && place.geometry) {
+      const selectedLat = place.geometry.location.lat();
+      const selectedLng = place.geometry.location.lng();
+      
+      setFormData(prev => ({
+        ...prev,
+        location: place.formatted_address,
+        lat: selectedLat,
+        lng: selectedLng
+      }));
+
+      findNearestAmbulance(selectedLat, selectedLng);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.lat) return alert("Please select an address from the dropdown!");
+    if (!formData.lat) return alert("Please select a location from the search list!");
 
     const { error } = await supabase.from('bookings').insert([{
       patient_name: formData.patient_name,
@@ -73,7 +91,8 @@ const CreateBooking = ({ onBookingCreated }) => {
 
     if (!error) {
       onBookingCreated(formData.lat, formData.lng);
-      alert(`✅ Booking Created! Suggested: ${nearestDriver ? nearestDriver.name : "None"}`);
+      alert(`Emergency Dispatched! Assigned to: ${nearestDriver?.name}`);
+      setNearestDriver(null);
     }
   };
 
@@ -81,26 +100,26 @@ const CreateBooking = ({ onBookingCreated }) => {
     <div className="panel">
       <h2>Create New Emergency Booking</h2>
       <form onSubmit={handleSubmit}>
-        
-        {/* 1. Patient Name (Was Missing) */}
         <div className="form-group">
           <label>Patient Name</label>
           <input 
             type="text" 
+            placeholder="Name"
             required 
             onChange={(e) => setFormData({...formData, patient_name: e.target.value})} 
           />
         </div>
 
-        {/* 2. Location */}
         <div className="form-group">
           <label>Location (Search and Select)</label>
-          <Autocomplete onLoad={r => autocompleteRef.current = r} onPlaceChanged={onPlaceChanged}>
-            <input type="text" placeholder="Search address..." required />
+          <Autocomplete 
+            onLoad={r => (autocompleteRef.current = r)} 
+            onPlaceChanged={onPlaceChanged}
+          >
+            <input type="text" placeholder="Search for incident address..." required />
           </Autocomplete>
         </div>
 
-        {/* 3. Emergency Type (Was Missing) */}
         <div className="form-group">
           <label>Emergency Type</label>
           <select onChange={(e) => setFormData({...formData, emergency_type: e.target.value})}>
@@ -110,26 +129,28 @@ const CreateBooking = ({ onBookingCreated }) => {
           </select>
         </div>
 
-        {/* 4. Notes (Was Missing) */}
         <div className="form-group">
           <label>Notes</label>
           <textarea 
+            placeholder="Patient condition..."
             onChange={(e) => setFormData({...formData, notes: e.target.value})} 
-            placeholder="Additional details..."
           />
         </div>
 
-        {/* Smart Suggestion Box */}
-        {nearestDriver && (
-          <div style={{ backgroundColor: '#e1f5fe', padding: '10px', borderRadius: '5px', margin: '10px 0', border: '1px solid #01579b' }}>
-            <p style={{ margin: 0, fontSize: '14px', color: '#01579b' }}>
-              💡 <strong>Smart Dispatch Suggestion:</strong> <br/>
+        {nearestDriver ? (
+          <div style={{ backgroundColor: '#e3f2fd', padding: '12px', borderRadius: '8px', border: '1px solid #2196f3', marginTop: '10px' }}>
+             <p style={{ margin: 0, fontSize: '14px', color: '#0d47a1' }}>
+              💡 <strong>Smart Dispatch Suggestion:</strong><br/>
               Nearest: <strong>{nearestDriver.name}</strong> ({nearestDriver.distance} km)
             </p>
           </div>
+        ) : (
+          <div style={{ padding: '12px', color: '#666', fontSize: '12px' }}>
+            Enter a location to find available ambulances...
+          </div>
         )}
 
-        <button type="submit" className="btn-primary" style={{width: '100%', marginTop: '10px'}}>
+        <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '15px' }}>
           Create Booking
         </button>
       </form>

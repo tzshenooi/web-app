@@ -1,0 +1,74 @@
+:root {
+  --med-blue: #2c3e50;
+  --emergency-red: #d63031;
+  --bg-light: #f1f2f6;
+  --white: #ffffff;
+  --border-color: #dfe6e9;
+}
+
+body {
+  background-color: var(--bg-light);
+  color: var(--med-blue);
+  margin: 0;
+}
+
+.dashboard-container {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: 100vh;
+}
+
+/* Sidebar for Multi-Incident Management */
+.sidebar {
+  background: var(--white);
+  border-right: 2px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 20px;
+  background: var(--med-blue);
+  color: white;
+}
+
+.incident-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+}
+
+/* Incident Card */
+.incident-card {
+  background: var(--white);
+  border: 1px solid var(--border-color);
+  border-left: 5px solid var(--emergency-red);
+  padding: 15px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.incident-card:hover {
+  background: #fdfdfd;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.incident-card.active {
+  border-color: var(--med-blue);
+  background: #f0f7ff;
+}
+
+.incident-card h4 { margin: 0; font-size: 1rem; }
+.incident-card p { margin: 5px 0; font-size: 0.85rem; color: #636e72; }
+
+/* Map UI */
+.map-area { position: relative; }
+
+.create-booking-section {
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+  background: #fafafa;
+}

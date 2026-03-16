@@ -1,69 +1,68 @@
-import React, { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback } from 'react';
 import { useJsApiLoader } from '@react-google-maps/api';
-import { supabase } from '../supabaseClient';
-import CreateBooking from './CreateBooking';
-import BookingList from './BookingList';
 import MapComponent from './MapComponent';
-import AddDriver from './AddDriver'; // 1. Import your new component
-import '../App.css';
+import CreateBooking from './CreateBooking';
+import './Dashboard1.css'; // Ensure your styling is imported
 
+// 1. Define the Google Maps Libraries we need
 const libraries = ['places'];
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const mapRef = useRef(null);
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo",
-    libraries: libraries
+  // 2. Load the Google Maps Script
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", // Replace with your key
+    libraries,
   });
 
-  const handleMoveMap = (lat, lng) => {
-    if (mapRef.current) {
-      mapRef.current.panTo({ lat, lng });
-      mapRef.current.setZoom(16);
-    }
-  };
+  // 3. State to trigger Map Refresh
+  const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-  };
+  // 4. Callback for when a booking is successfully saved in Supabase
+  const handleBookingCreated = useCallback(() => {
+    console.log("🚀 Booking detected! Refreshing Map...");
+    setMapRefreshTrigger(prev => prev + 1);
+  }, []);
 
-  if (!isLoaded) return <div>Initialising Systems...</div>;
+  if (loadError) return <div className="error">Error loading maps. Check API Key.</div>;
+  if (!isLoaded) return <div className="loading">Initializing Smart Dispatcher...</div>;
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h1>Dispatcher Command Center</h1>
-        <button onClick={handleLogout} className="logout-btn">Logout</button>
-      </div>
+      {/* LEFT PANEL: Booking and Fleet Management */}
+      <div className="sidebar">
+        <header className="header">
+          <h1>Ambulance Command Center</h1>
+          <p>Real-time Dispatch & Fleet Monitoring</p>
+        </header>
 
-      <div className="dashboard-grid">
-        {/* LEFT COLUMN: All Data Entry Forms */}
-        <div className="left-column">
-          <div className="panel">
-            <CreateBooking onBookingCreated={handleMoveMap} />
-          </div>
+        <div className="scroll-content">
+          {/* Booking Form Component */}
+          <CreateBooking onBookingCreated={handleBookingCreated} />
 
-          {/* 2. Dedicated Fleet Management Section */}
-          <div className="panel" style={{ marginTop: '20px' }}>
-            <AddDriver />
+          {/* Optional: Fleet Status List */}
+          <div className="panel fleet-status">
+            <h3>Live Fleet Status</h3>
+            <div className="status-item">
+              <span className="dot online"></span> 
+              <strong>hiarc</strong> - Padang Serai (Available)
+            </div>
+            <div className="status-item">
+              <span className="dot online"></span> 
+              <strong>shit</strong> - USM (Available)
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* RIGHT COLUMN: Live Map and Incident Monitoring */}
-        <div className="right-column">
-          <div className="panel" style={{ height: '500px', padding: '0', overflow: 'hidden' }}>
-             <MapComponent onMapLoad={(map) => (mapRef.current = map)} /> 
-          </div>
-
-          <div className="panel">
-            <h2>Active Incidents</h2>
-            <BookingList />
-          </div>
+      {/* RIGHT PANEL: The "Grab-style" Map */}
+      <div className="map-area">
+        <MapComponent refreshTrigger={mapRefreshTrigger} />
+        
+        {/* Map Legend Overlay */}
+        <div className="map-overlay-legend">
+          <div className="legend-item">🚑 Ambulance</div>
+          <div className="legend-item">🆘 Emergency Incident</div>
+          <div className="legend-item"><span className="line-green"></span> Route Path</div>
         </div>
       </div>
     </div>
