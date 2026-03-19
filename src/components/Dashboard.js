@@ -8,8 +8,8 @@ import './Dashboard1.css';
 const libraries = ['places'];
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [drivers, setDrivers] = useState([]);
+  const [showModal, setShowModal] = useState(false);
   
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -31,14 +31,13 @@ const Dashboard = () => {
 
   return (
     <div className="app-shell">
-      {/* BASE LAYER: FULLSCREEN MAP */}
+      {/* MAP BACKGROUND */}
       <div className="map-background">
         <MapComponent />
       </div>
 
-      {/* UI OVERLAY */}
       <div className="ui-container">
-        {/* FLOATING BANNER */}
+        {/* TOP BANNER */}
         <div className="banner-anchor">
           <header className="main-banner">
             <div className="banner-left">
@@ -46,11 +45,8 @@ const Dashboard = () => {
               <h2 className="banner-title">Fleet Management</h2>
             </div>
             <div className="banner-right">
-              <button className="submit-btn">Submit to get the template</button>
-              <div className="notif-wrapper">
-                <span className="icon">🔔</span>
-                <span className="blue-dot"></span>
-              </div>
+              <button className="status-pill">System Online</button>
+              <div className="notif-wrapper">🔔<span className="blue-dot"></span></div>
               <div className="profile-group">
                 <div className="avatar">OS</div>
                 <span className="arrow">▼</span>
@@ -59,11 +55,10 @@ const Dashboard = () => {
           </header>
         </div>
 
-        {/* WORKSPACE AREA */}
+        {/* WORKSPACE CONTENT */}
         <div className="workspace-content">
           <nav className="side-nav">
-             <div className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>📊</div>
-             <div className="nav-link">🚚</div>
+             <div className="nav-link active">📊</div>
              <div className="nav-link">📂</div>
              <div className="nav-spacer"></div>
              <div className="nav-link">⚙️</div>
@@ -71,27 +66,53 @@ const Dashboard = () => {
 
           <main className="hud-panel">
             <header className="hud-header">
-              <h1>Operations HUD</h1>
+              <h1 className="hud-title">Active Vehicles</h1>
               <input type="text" placeholder="Search units..." className="hud-search" />
             </header>
+
             <div className="hud-scroll-hide">
-               <CreateBooking onBookingCreated={fetchData} />
-               <div className="unit-list">
-                 {drivers.map(driver => (
-                   <div key={driver.id} className="unit-item">
-                     <div className="unit-icon-box">🚑</div>
-                     <div className="unit-info">
-                       <p className="name">{driver.name}</p>
-                       <p className="meta">Unit {driver.id.toString().slice(0,5)}</p>
-                     </div>
-                     <span className="badge available">AVAILABLE</span>
-                   </div>
-                 ))}
+               <div className="fleet-list-container">
+                  {drivers.map(driver => (
+                    <div key={driver.id} className="unit-row-item">
+                      <div className="unit-visual">
+                        <div className="unit-icon-bg">🚑</div>
+                        <span className={`status-dot-mini ${driver.status === 'Available' ? 'online' : 'busy'}`}></span>
+                      </div>
+                      <div className="unit-content">
+                        <div className="unit-primary-line"><strong>{driver.name}</strong></div>
+                        <div className="unit-secondary-line">Unit {driver.id.toString().slice(0, 5)}</div>
+                      </div>
+                      <div className="unit-action-box"><button className="trip-btn">Trip ▼</button></div>
+                    </div>
+                  ))}
                </div>
             </div>
           </main>
         </div>
+
+        {/* FLOATING ACTION BUTTON */}
+        <button className="fab-dispatch" onClick={() => setShowModal(true)}>
+          <span className="fab-icon">🚑</span>
+          <span className="fab-text">New Dispatch</span>
+        </button>
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <div className="modal-header-text">
+                <h3>Create New Incident</h3>
+              </div>
+              <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
+            </header>
+            <div className="modal-body">
+              <CreateBooking onBookingCreated={() => { setShowModal(false); fetchData(); }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
