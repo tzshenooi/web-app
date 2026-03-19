@@ -35,28 +35,28 @@ const CreateBooking = ({ onBookingCreated }) => {
 
   return (
     <div className="dispatch-form-container">
-      <div className="form-header">
-        <span className="emergency-indicator">🚨</span>
-        <h3 className="form-title">Incident Dispatch Log</h3>
+      <div className="form-header" style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>
+        <span style={{fontSize:'1.2rem'}}>🚨</span>
+        <h3 style={{margin:0, fontSize:'1rem', fontWeight:800}}>New Incident Dispatch</h3>
       </div>
       
-      <form onSubmit={handleSubmit} className="modern-form">
-        <div className="form-input-group">
-          <label className="form-label">Patient Name</label>
+      <form onSubmit={handleSubmit}>
+        <div style={{marginBottom:'12px'}}>
+          <label style={{display:'block', fontSize:'0.75rem', fontWeight:700, color:'#64748b', marginBottom:'5px'}}>PATIENT NAME</label>
           <input 
             type="text" 
-            className="form-input-field"
-            placeholder="Full Legal Name" 
+            style={{width:'100%', padding:'10px', borderRadius:'8px', border:'1px solid #e2e8f0', outline:'none'}}
+            placeholder="Search or enter name..." 
             value={patientName}
             onChange={(e) => setPatientName(e.target.value)}
             required 
           />
         </div>
 
-        <div className="form-input-group">
-          <label className="form-label">Emergency Location</label>
+        <div style={{marginBottom:'12px'}}>
+          <label style={{display:'block', fontSize:'0.75rem', fontWeight:700, color:'#64748b', marginBottom:'5px'}}>INCIDENT LOCATION</label>
           <Autocomplete
-            apiKey="AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo"
+            apiKey="YOUR_API_KEY"
             onPlaceSelected={(place) => {
               setLocation({
                 address: place.formatted_address,
@@ -68,42 +68,34 @@ const CreateBooking = ({ onBookingCreated }) => {
               types: ['address'], 
               componentRestrictions: { country: 'my' } 
             }}
-            placeholder="Validate via GPS Search..."
-            className="form-input-field" 
+            placeholder="Verify Address via GPS..."
+            style={{width:'100%', padding:'10px', borderRadius:'8px', border:'1px solid #e2e8f0', outline:'none'}}
           />
         </div>
 
-        <div className="form-row">
-          <div className="form-input-group half">
-            <label className="form-label">Priority Class</label>
-            <select className="form-select-field" value={priority} onChange={(e) => setPriority(e.target.value)}>
+        <div style={{display:'flex', gap:'10px', marginBottom:'12px'}}>
+          <div style={{flex:1}}>
+             <label style={{display:'block', fontSize:'0.75rem', fontWeight:700, color:'#64748b', marginBottom:'5px'}}>PRIORITY</label>
+             <select 
+                style={{width:'100%', padding:'10px', borderRadius:'8px', border:'1px solid #e2e8f0', background:'white'}} 
+                value={priority} 
+                onChange={(e) => setPriority(e.target.value)}
+             >
               <option>Medical</option>
               <option>Trauma</option>
               <option>Cardiac</option>
-              <option>Other</option>
             </select>
           </div>
-          <div className="form-input-group half">
-            <label className="form-label">Suggested Unit</label>
-            <div className="unit-preview-box">
-              {location ? "Searching nearby..." : "Awaiting Loc..."}
+          <div style={{flex:1}}>
+            <label style={{display:'block', fontSize:'0.75rem', fontWeight:700, color:'#64748b', marginBottom:'5px'}}>NEAREST UNIT</label>
+            <div style={{fontSize:'0.8rem', color:'#3b82f6', paddingTop:'10px'}}>
+              {location ? "Unit 04 (2.1km)" : "Awaiting GPS..."}
             </div>
           </div>
         </div>
 
-        <div className="form-input-group">
-          <label className="form-label">Critical Notes</label>
-          <textarea 
-            className="form-textarea-field"
-            placeholder="Patient condition or hazard info..." 
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows="2"
-          />
-        </div>
-
         <button type="submit" className="btn-confirm-dispatch" disabled={loading}>
-          {loading ? "Processing..." : "Confirm Dispatch"}
+          {loading ? "COMMUNICATING..." : "CONFIRM DISPATCH"}
         </button>
       </form>
     </div>

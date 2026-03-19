@@ -10,8 +10,6 @@ const libraries = ['places'];
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [drivers, setDrivers] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -20,9 +18,7 @@ const Dashboard = () => {
 
   const fetchData = useCallback(async () => {
     const { data: drv } = await supabase.from('drivers').select('*');
-    const { data: bkg } = await supabase.from('bookings').select('*').order('created_at', { ascending: false });
     if (drv) setDrivers(drv);
-    if (bkg) setBookings(bkg);
   }, []);
 
   useEffect(() => {
@@ -31,80 +27,69 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  if (!isLoaded) return <div className="loading-screen">Syncing Satellite Data...</div>;
-
-  const onlineUnits = drivers.filter(d => d.status === 'Available').length;
+  if (!isLoaded) return <div className="loading-screen"><h2>INITIALIZING SYSTEM...</h2></div>;
 
   return (
     <div className="app-shell">
-      {/* 1. TOP BANNER - FLOATING OVER MAP */}
-      <header className="top-banner">
-        <div className="banner-left">
-          <span className="banner-icon">📍</span>
-          <h2>Fleet Management</h2>
-        </div>
-        <div className="banner-right">
-          <button className="submit-report-btn">Submit Report</button>
-          <div className="banner-notif">🔔</div>
-          <div className="user-avatar">OS</div>
-        </div>
-      </header>
-
-      {/* 2. THE MAP BASE LAYER (COVERS EVERYTHING) */}
+      {/* BASE LAYER: FULLSCREEN MAP */}
       <div className="map-background">
         <MapComponent />
       </div>
 
-      {/* 3. INTERACTIVE UI LAYER */}
-      <div className="workspace-layer">
-        {/* SLIM SIDEBAR */}
-        <nav className="pill-sidebar">
-          <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>📊</div>
-          <div className={`nav-item ${activeTab === 'fleet' ? 'active' : ''}`} onClick={() => setActiveTab('fleet')}>🚚</div>
-          <div className={`nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>📂</div>
-          <div className="nav-spacer"></div>
-          <div className="nav-bottom-item">⚙️</div>
-          <div className="nav-arrow">›</div>
-        </nav>
-
-        {/* FEATURE PANEL */}
-        <aside className="feature-panel">
-          <header className="panel-header">
-            <h1>{activeTab === 'dashboard' ? 'Active Vehicles' : 'Incident Logs'}</h1>
-            <div className="search-box-wrapper">
-              <input 
-                type="text" 
-                className="panel-search" 
-                placeholder="Search..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+      {/* UI OVERLAY */}
+      <div className="ui-container">
+        {/* FLOATING BANNER */}
+        <div className="banner-anchor">
+          <header className="main-banner">
+            <div className="banner-left">
+              <span className="brand-pin">📍</span>
+              <h2 className="banner-title">Fleet Management</h2>
+            </div>
+            <div className="banner-right">
+              <button className="submit-btn">Submit to get the template</button>
+              <div className="notif-wrapper">
+                <span className="icon">🔔</span>
+                <span className="blue-dot"></span>
+              </div>
+              <div className="profile-group">
+                <div className="avatar">OS</div>
+                <span className="arrow">▼</span>
+              </div>
             </div>
           </header>
+        </div>
 
-          <div className="scroll-area">
-            {activeTab === 'dashboard' && (
-              <div className="view-fade">
-                <CreateBooking onBookingCreated={fetchData} />
-                <h3 className="section-label">Fleet HUD</h3>
-                {drivers.map(driver => (
-                  <div key={driver.id} className="unit-card">
-                    <div className="card-top">
-                      <strong>{driver.name}</strong>
-                      <span className={`status-text ${driver.status === 'Available' ? 'on' : 'off'}`}>{driver.status}</span>
-                    </div>
-                    <div className="card-meta">ALS Unit • Padang Serai</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </aside>
+        {/* WORKSPACE AREA */}
+        <div className="workspace-content">
+          <nav className="side-nav">
+             <div className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>📊</div>
+             <div className="nav-link">🚚</div>
+             <div className="nav-link">📂</div>
+             <div className="nav-spacer"></div>
+             <div className="nav-link">⚙️</div>
+          </nav>
 
-        {/* TOP STATUS CHIPS */}
-        <div className="status-chips">
-          <div className="chip"><span className="dot green"></span> {onlineUnits} Online</div>
-          <div className="chip"><span className="dot blue"></span> {bookings.length} Jobs</div>
+          <main className="hud-panel">
+            <header className="hud-header">
+              <h1>Operations HUD</h1>
+              <input type="text" placeholder="Search units..." className="hud-search" />
+            </header>
+            <div className="hud-scroll-hide">
+               <CreateBooking onBookingCreated={fetchData} />
+               <div className="unit-list">
+                 {drivers.map(driver => (
+                   <div key={driver.id} className="unit-item">
+                     <div className="unit-icon-box">🚑</div>
+                     <div className="unit-info">
+                       <p className="name">{driver.name}</p>
+                       <p className="meta">Unit {driver.id.toString().slice(0,5)}</p>
+                     </div>
+                     <span className="badge available">AVAILABLE</span>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          </main>
         </div>
       </div>
     </div>
