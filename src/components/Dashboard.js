@@ -10,6 +10,7 @@ const libraries = ['places'];
 const Dashboard = () => {
   const [drivers, setDrivers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null); // LIVE PREVIEW STATE
   
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -31,13 +32,12 @@ const Dashboard = () => {
 
   return (
     <div className="app-shell">
-      {/* MAP BACKGROUND */}
       <div className="map-background">
-        <MapComponent />
+        {/* Pass previewLocation to the Map */}
+        <MapComponent previewLocation={selectedLocation} />
       </div>
 
       <div className="ui-container">
-        {/* TOP BANNER */}
         <div className="banner-anchor">
           <header className="main-banner">
             <div className="banner-left">
@@ -46,20 +46,14 @@ const Dashboard = () => {
             </div>
             <div className="banner-right">
               <button className="status-pill">System Online</button>
-              <div className="notif-wrapper">🔔<span className="blue-dot"></span></div>
-              <div className="profile-group">
-                <div className="avatar">OS</div>
-                <span className="arrow">▼</span>
-              </div>
+              <div className="profile-group"><div className="avatar">OS</div></div>
             </div>
           </header>
         </div>
 
-        {/* WORKSPACE CONTENT */}
         <div className="workspace-content">
           <nav className="side-nav">
              <div className="nav-link active">📊</div>
-             <div className="nav-link">📂</div>
              <div className="nav-spacer"></div>
              <div className="nav-link">⚙️</div>
           </nav>
@@ -69,7 +63,6 @@ const Dashboard = () => {
               <h1 className="hud-title">Active Vehicles</h1>
               <input type="text" placeholder="Search units..." className="hud-search" />
             </header>
-
             <div className="hud-scroll-hide">
                <div className="fleet-list-container">
                   {drivers.map(driver => (
@@ -79,10 +72,10 @@ const Dashboard = () => {
                         <span className={`status-dot-mini ${driver.status === 'Available' ? 'online' : 'busy'}`}></span>
                       </div>
                       <div className="unit-content">
-                        <div className="unit-primary-line"><strong>{driver.name}</strong></div>
+                        <strong>{driver.name}</strong>
                         <div className="unit-secondary-line">Unit {driver.id.toString().slice(0, 5)}</div>
                       </div>
-                      <div className="unit-action-box"><button className="trip-btn">Trip ▼</button></div>
+                      <button className="trip-btn">Trip ▼</button>
                     </div>
                   ))}
                </div>
@@ -90,25 +83,27 @@ const Dashboard = () => {
           </main>
         </div>
 
-        {/* FLOATING ACTION BUTTON */}
         <button className="fab-dispatch" onClick={() => setShowModal(true)}>
           <span className="fab-icon">🚑</span>
           <span className="fab-text">New Dispatch</span>
         </button>
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <header className="modal-header">
-              <div className="modal-header-text">
-                <h3>Create New Incident</h3>
-              </div>
+              <h3>New Incident Dispatch</h3>
               <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
             </header>
             <div className="modal-body">
-              <CreateBooking onBookingCreated={() => { setShowModal(false); fetchData(); }} />
+              <CreateBooking 
+                onLocationSelected={setSelectedLocation} // Updates map in real-time
+                onBookingCreated={() => {
+                  setShowModal(false);
+                  fetchData();
+                }} 
+              />
             </div>
           </div>
         </div>
