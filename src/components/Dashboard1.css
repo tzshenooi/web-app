@@ -1,4 +1,5 @@
-/* --- 1. CORE THEME VARIABLES --- */
+/* --- Dashboard1.css --- */
+
 :root {
   --nav-dark: #1e2632;
   --banner-dark: rgba(28, 34, 45, 0.96);
@@ -8,66 +9,57 @@
   --text-main: #1e293b;
   --text-muted: #64748b;
   --green: #10b981;
-  --border-light: #e2e8f0;
 }
 
-/* --- 2. GLOBAL RESET & LAYOUT --- */
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html, body, #root, .app-shell {
   height: 100vh;
   width: 100vw;
   margin: 0;
-  padding: 0;
   overflow: hidden;
   position: relative;
-  font-family: 'Inter', -apple-system, sans-serif;
-  background-color: #f0f2f5;
+  font-family: 'Inter', sans-serif;
 }
 
-/* --- 3. MAP BACKGROUND --- */
+/* LAYER 1: MAP BACKGROUND */
 .map-background {
   position: absolute;
   inset: 0;
   z-index: 1;
 }
 
-/* --- 4. UI OVERLAY CONTAINER --- */
+/* LAYER 2: UI OVERLAY */
 .ui-container {
   position: absolute;
   inset: 0;
   z-index: 100;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
-  pointer-events: none; /* Clicks pass through to map where UI is empty */
 }
 
-/* --- 5. FLOATING TOP BANNER --- */
-.banner-anchor {
-  padding: 12px 20px;
+.banner-anchor, .side-nav, .hud-panel, .fab-dispatch, .modal-overlay {
   pointer-events: auto;
 }
 
+/* --- BANNER --- */
+.banner-anchor { padding: 12px 20px; }
 .main-banner {
   height: 60px;
   background: var(--banner-dark);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .banner-left { display: flex; align-items: center; gap: 10px; }
-.banner-title { font-size: 1rem; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
-.brand-pin { font-size: 1.2rem; }
+.banner-title { font-size: 1rem; font-weight: 700; margin: 0; }
 
 .status-pill {
   background: rgba(16, 185, 129, 0.15);
@@ -76,20 +68,14 @@ html, body, #root, .app-shell {
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: 600;
 }
 
-/* --- 6. WORKSPACE (SIDEBAR + HUD) --- */
+/* --- SIDEBAR + HUD --- */
 .workspace-content {
   flex: 1;
   display: flex;
   gap: 15px;
   padding: 0 20px 20px 20px;
-  align-items: stretch; /* Makes sidebar and HUD same height */
-}
-
-.side-nav, .hud-panel {
-  pointer-events: auto; /* Re-enable clicks for UI elements */
 }
 
 .side-nav {
@@ -100,258 +86,94 @@ html, body, #root, .app-shell {
   flex-direction: column;
   align-items: center;
   padding: 22px 0;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
 .nav-link {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  cursor: pointer;
-  margin-bottom: 15px;
-  border-radius: 12px;
-  font-size: 1.2rem;
-  transition: 0.2s;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: #94a3b8; cursor: pointer; margin-bottom: 15px;
+  border-radius: 12px; font-size: 1.2rem;
 }
-
-.nav-link.active {
-  background: var(--accent-blue);
-  color: white;
-}
-
+.nav-link.active { background: var(--accent-blue); color: white; }
 .nav-spacer { flex: 1; }
 
-/* --- 7. HUD PANEL (ACTIVE VEHICLES) --- */
 .hud-panel {
   width: 340px;
-  background: var(--hud-white);
+  background: white;
   border-radius: 24px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  overflow: hidden;
 }
 
-.hud-header {
-  padding: 20px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.hud-title {
-  font-size: 1.1rem;
-  font-weight: 800;
-  margin: 0 0 12px 0;
-  color: var(--text-main);
-}
-
-.hud-search {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
+.hud-header { padding: 20px; border-bottom: 1px solid #f1f5f9; }
+.hud-title { font-weight: 800; color: var(--text-main); margin: 0 0 10px 0; }
+.hud-search { 
+  width: 100%; 
+  padding: 10px 14px; 
+  border-radius: 10px; 
+  border: 1px solid #e2e8f0; 
   outline: none;
   font-size: 0.85rem;
 }
 
 .hud-scroll-hide {
   flex: 1;
-  overflow-y: scroll;
-  padding: 12px;
-  scrollbar-width: none; /* Firefox */
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.hud-scroll-hide::-webkit-scrollbar { display: none; }
 
-.hud-scroll-hide::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
-}
-
-/* --- 8. UNIT LIST ROWS --- */
-.fleet-list-container {
-  background: white;
-  border-radius: 14px;
-  border: 1px solid #f1f5f9;
-  overflow: hidden;
-}
-
-.unit-row-item {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #f8fafc;
+/* --- LOGISTICS CARD --- */
+.unit-card-new {
+  padding: 15px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
   transition: background 0.2s;
 }
+.unit-card-new:hover { background: #f8fafc; }
 
-.unit-row-item:hover { background: #f8fafc; }
-
-.unit-visual { position: relative; margin-right: 15px; }
+.card-main-content { display: flex; align-items: center; gap: 12px; }
 
 .unit-icon-bg {
-  width: 42px;
-  height: 42px;
-  background: #f1f5f9;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
+  width: 42px; height: 42px;
+  background: #f1f5f9; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
 }
 
 .status-dot-mini {
-  position: absolute;
-  top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   width: 10px; height: 10px;
-  border-radius: 50%;
-  border: 2px solid white;
+  border-radius: 50%; border: 2px solid white;
 }
-
 .status-dot-mini.online { background: var(--green); }
 .status-dot-mini.busy { background: #f59e0b; }
 
-.unit-content { flex: 1; min-width: 0; }
-.unit-primary-line { font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
-.unit-secondary-line { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+.unit-name-text { font-weight: 800; color: #1e293b; }
+.unit-sub-text { font-size: 0.75rem; color: #94a3b8; }
 
-.trip-btn {
-  background: #f1f5f9;
-  border: none;
-  padding: 7px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #64748b;
-  cursor: pointer;
+.trip-btn-ref {
+  margin-left: auto;
+  background: #f1f5f9; border: none;
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 0.75rem; font-weight: 700; color: #64748b;
 }
 
-/* --- 9. FLOATING ACTION BUTTON (FAB) --- */
+/* --- VERTICAL TIMELINE --- */
+.expanded-details { margin-top: 15px; padding-left: 12px; }
+.timeline-item { display: flex; gap: 15px; margin-bottom: 4px; }
+.node { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+.node.green { background: var(--green); }
+.node.red { background: var(--accent-red); }
+.timeline-line { width: 2px; height: 18px; background: #e2e8f0; margin-left: 3px; }
+.timeline-info strong { display: block; font-size: 0.85rem; color: #1e293b; }
+.timeline-info span { font-size: 0.75rem; color: #94a3b8; }
+
+/* --- FAB BUTTON --- */
 .fab-dispatch {
-  position: absolute;
-  bottom: 35px;
-  right: 35px;
-  background: var(--accent-red);
-  color: white;
-  border: none;
-  padding: 14px 28px;
-  border-radius: 50px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 800;
-  box-shadow: 0 12px 30px rgba(239, 68, 68, 0.4);
-  cursor: pointer;
-  z-index: 1000;
-  pointer-events: auto;
-  transition: transform 0.2s, background 0.2s;
+  position: absolute; bottom: 35px; right: 35px;
+  background: var(--accent-red); color: white;
+  border: none; padding: 14px 28px; border-radius: 50px;
+  font-weight: 800; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4);
 }
-
-.fab-dispatch:hover {
-  transform: scale(1.05);
-  background: #dc2626;
-}
-
-/* --- 10. MODAL & DISPATCH FORM --- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.modal-card {
-  background: white;
-  width: 90%;
-  max-width: 480px;
-  border-radius: 28px;
-  padding: 30px;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.3);
-  overflow: visible !important; /* CRITICAL for Google Dropdown */
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.close-btn {
-  background: #f1f5f9;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-/* Form Layout */
-.dispatch-form-container { width: 100%; }
-.input-group { margin-bottom: 20px; }
-.field-label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-
-.modern-input, .modern-select {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
-  background: #f8fafc;
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.modern-input:focus { border-color: var(--accent-blue); }
-
-.input-row { display: flex; gap: 16px; margin-bottom: 20px; }
-.input-half { flex: 1; }
-
-.confirm-btn {
-  width: 100%;
-  padding: 14px;
-  background: var(--accent-blue);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-top: 10px;
-  pointer-events: auto !important; /* Ensure the button is clickable */
-  cursor: pointer;
-}
-
-.confirm-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-/* --- 11. GOOGLE AUTOCOMPLETE FIX --- */
-.pac-container {
-  z-index: 10000 !important;
-  border-radius: 12px;
-  margin-top: 5px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  border: none;
-  font-family: inherit;
-}
-
-.pac-item {
-  padding: 10px 14px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-

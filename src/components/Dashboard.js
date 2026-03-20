@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import MapComponent from './MapComponent';
@@ -9,9 +9,13 @@ const libraries = ['places'];
 
 const Dashboard = () => {
   const [drivers, setDrivers] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null); // LIVE PREVIEW STATE
-  
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [mapFocus, setMapFocus] = useState(null);
+  const [expandedUnit, setExpandedUnit] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(""); // SEARCH STATE
+
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
     libraries,
@@ -19,22 +23,40 @@ const Dashboard = () => {
 
   const fetchData = useCallback(async () => {
     const { data: drv } = await supabase.from('drivers').select('*');
+    const { data: bkg } = await supabase.from('bookings').select('*').eq('status', 'Pending');
     if (drv) setDrivers(drv);
+    if (bkg) setBookings(bkg);
   }, []);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // SEARCH LOGIC: Filters drivers by name or ID
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter(d => 
+      d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.id.toString().includes(searchTerm)
+    );
+  }, [drivers, searchTerm]);
+
+  const handleUnitClick = (driver) => {
+    setExpandedUnit(expandedUnit === driver.id ? null : driver.id);
+    setMapFocus({
+      lat: driver.current_lat,
+      lng: driver.current_lng,
+      timestamp: Date.now()
+    });
+  };
 
   if (!isLoaded) return <div className="loading-screen"><h2>INITIALIZING SYSTEM...</h2></div>;
 
   return (
     <div className="app-shell">
       <div className="map-background">
-        {/* Pass previewLocation to the Map */}
-        <MapComponent previewLocation={selectedLocation} />
+        <MapComponent previewLocation={selectedLocation} mapFocus={mapFocus} />
       </div>
 
       <div className="ui-container">
@@ -61,23 +83,70 @@ const Dashboard = () => {
           <main className="hud-panel">
             <header className="hud-header">
               <h1 className="hud-title">Active Vehicles</h1>
-              <input type="text" placeholder="Search units..." className="hud-search" />
+              {/* SEARCH INPUT */}
+              <input 
+                type="text" 
+                placeholder="Search units..." 
+                className="hud-search" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </header>
+            
             <div className="hud-scroll-hide">
                <div className="fleet-list-container">
-                  {drivers.map(driver => (
-                    <div key={driver.id} className="unit-row-item">
-                      <div className="unit-visual">
-                        <div className="unit-icon-bg">🚑</div>
-                        <span className={`status-dot-mini ${driver.status === 'Available' ? 'online' : 'busy'}`}></span>
+                  {filteredDrivers.map(driver => {
+                    const isExpanded = expandedUnit === driver.id;
+                    const activeTrip = bookings.find(b => b.driver_id === driver.id);
+
+                    return (
+                      <div 
+                        key={driver.id} 
+                        className={`unit-card-new ${isExpanded ? 'expanded' : ''}`}
+                        onClick={() => handleUnitClick(driver)}
+                      >
+                        <div className="card-main-content">
+                          <div className="unit-visual">
+                            <div className="unit-icon-bg">🚑</div>
+                            <span className={`status-dot-mini ${driver.status === 'Available' ? 'online' : 'busy'}`}></span>
+                          </div>
+                          <div className="unit-content">
+                            <div className="unit-title-row">
+                                <span className="unit-name-text">{driver.name}</span>
+                                {activeTrip && <span className="blue-arrow">↗️</span>}
+                            </div>
+                            <div className="unit-sub-text">17, May, 20 / 2h 34min</div>
+                          </div>
+                          <button className="trip-btn-ref">Trip ↗</button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="expanded-details">
+                            <div className="timeline-item">
+                              <div className="node green"></div>
+                              <div className="timeline-info">
+                                <strong>Base Station</strong>
+                                <span>May 20, 4:00 PM</span>
+                              </div>
+                            </div>
+                            <div className="timeline-line"></div>
+                            <div className="timeline-item">
+                              <div className="node red"></div>
+                              <div className="timeline-info">
+                                <strong>{activeTrip ? activeTrip.location_name || 'Incident' : 'Idle'}</strong>
+                                <span>{activeTrip ? 'Active Response' : 'Waiting for dispatch'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="unit-content">
-                        <strong>{driver.name}</strong>
-                        <div className="unit-secondary-line">Unit {driver.id.toString().slice(0, 5)}</div>
-                      </div>
-                      <button className="trip-btn">Trip ▼</button>
+                    );
+                  })}
+                  {filteredDrivers.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
+                      No units found matching "{searchTerm}"
                     </div>
-                  ))}
+                  )}
                </div>
             </div>
           </main>
@@ -96,15 +165,10 @@ const Dashboard = () => {
               <h3>New Incident Dispatch</h3>
               <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
             </header>
-            <div className="modal-body">
-              <CreateBooking 
-                onLocationSelected={setSelectedLocation} // Updates map in real-time
-                onBookingCreated={() => {
-                  setShowModal(false);
-                  fetchData();
-                }} 
-              />
-            </div>
+            <CreateBooking 
+              onLocationSelected={setSelectedLocation}
+              onBookingCreated={() => { setShowModal(false); fetchData(); }} 
+            />
           </div>
         </div>
       )}
