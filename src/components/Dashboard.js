@@ -14,7 +14,7 @@ const Dashboard = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [mapFocus, setMapFocus] = useState(null);
   const [expandedUnit, setExpandedUnit] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(""); // SEARCH STATE
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -34,7 +34,6 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // SEARCH LOGIC: Filters drivers by name or ID
   const filteredDrivers = useMemo(() => {
     return drivers.filter(d => 
       d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,15 +74,20 @@ const Dashboard = () => {
 
         <div className="workspace-content">
           <nav className="side-nav">
-             <div className="nav-link active">📊</div>
-             <div className="nav-spacer"></div>
-             <div className="nav-link">⚙️</div>
+             {/* Top Section */}
+             <div className="nav-top-group">
+                <div className="nav-link active">📊</div>
+             </div>
+             
+             {/* Bottom Section */}
+             <div className="nav-bottom-group">
+                <div className="nav-link">⚙️</div>
+             </div>
           </nav>
 
           <main className="hud-panel">
             <header className="hud-header">
               <h1 className="hud-title">Active Vehicles</h1>
-              {/* SEARCH INPUT */}
               <input 
                 type="text" 
                 placeholder="Search units..." 
@@ -97,8 +101,6 @@ const Dashboard = () => {
                <div className="fleet-list-container">
                   {filteredDrivers.map(driver => {
                     const isExpanded = expandedUnit === driver.id;
-                    const activeTrip = bookings.find(b => b.driver_id === driver.id);
-
                     return (
                       <div 
                         key={driver.id} 
@@ -108,16 +110,12 @@ const Dashboard = () => {
                         <div className="card-main-content">
                           <div className="unit-visual">
                             <div className="unit-icon-bg">🚑</div>
-                            <span className={`status-dot-mini ${driver.status === 'Available' ? 'online' : 'busy'}`}></span>
                           </div>
                           <div className="unit-content">
-                            <div className="unit-title-row">
-                                <span className="unit-name-text">{driver.name}</span>
-                                {activeTrip && <span className="blue-arrow">↗️</span>}
-                            </div>
+                            <span className="unit-name-text">{driver.name}</span>
                             <div className="unit-sub-text">17, May, 20 / 2h 34min</div>
                           </div>
-                          <button className="trip-btn-ref">Trip ↗</button>
+                          <button className="trip-btn-ref">Trip ▼</button>
                         </div>
 
                         {isExpanded && (
@@ -126,15 +124,14 @@ const Dashboard = () => {
                               <div className="node green"></div>
                               <div className="timeline-info">
                                 <strong>Base Station</strong>
-                                <span>May 20, 4:00 PM</span>
+                                <span>Status: Ready</span>
                               </div>
                             </div>
-                            <div className="timeline-line"></div>
                             <div className="timeline-item">
                               <div className="node red"></div>
                               <div className="timeline-info">
-                                <strong>{activeTrip ? activeTrip.location_name || 'Incident' : 'Idle'}</strong>
-                                <span>{activeTrip ? 'Active Response' : 'Waiting for dispatch'}</span>
+                                <strong>Idle</strong>
+                                <span>Waiting for dispatch</span>
                               </div>
                             </div>
                           </div>
@@ -142,11 +139,6 @@ const Dashboard = () => {
                       </div>
                     );
                   })}
-                  {filteredDrivers.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
-                      No units found matching "{searchTerm}"
-                    </div>
-                  )}
                </div>
             </div>
           </main>
@@ -162,8 +154,8 @@ const Dashboard = () => {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <header className="modal-header">
-              <h3>New Incident Dispatch</h3>
-              <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
+              <h3 className="modal-header-title">New Incident Dispatch</h3>
+              <button className="close-btn-modern" onClick={() => setShowModal(false)}>&times;</button>
             </header>
             <CreateBooking 
               onLocationSelected={setSelectedLocation}

@@ -11,20 +11,18 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
 
   const handlePlaceSelect = (place) => {
     if (!place.geometry) return;
-
     const locData = {
       address: place.formatted_address,
       lat: place.geometry.location.lat(),
       lng: place.geometry.location.lng(),
     };
-
     setLocation(locData);
-    onLocationSelected(locData); // Sends data to Dashboard -> Map
+    onLocationSelected(locData); 
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!location) return alert("Select a location from suggestions.");
+    if (!location) return alert("Select a location.");
     setLoading(true);
     
     const { error } = await supabase.from('bookings').insert([{
@@ -39,7 +37,7 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
 
     if (!error) {
       onBookingCreated();
-      onLocationSelected(null); // Clear map marker on success
+      onLocationSelected(null);
     }
     setLoading(false);
   };
@@ -59,6 +57,7 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
             onPlaceSelected={handlePlaceSelect}
             options={{ types: [], componentRestrictions: { country: 'my' } }}
             className="modern-input"
+            placeholder="Enter a location"
           />
         </div>
 
@@ -66,18 +65,22 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
           <div className="input-half">
              <label className="field-label">PRIORITY</label>
              <select className="modern-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
-               <option>Medical</option><option>Trauma</option><option>Cardiac</option>
+               <option>Medical</option>
+               <option>Trauma</option>
+               <option>Cardiac</option>
              </select>
           </div>
           <div className="input-half">
             <label className="field-label">NEAREST UNIT</label>
-            <div className="nearest-unit-display">{location ? "Unit 04 (2.1km)" : "Awaiting GPS..."}</div>
+            <div className="nearest-unit-display" style={{ fontWeight: '700', marginTop: '10px' }}>
+              {location ? "Unit 04 (2.1km)" : "Awaiting GPS..."}
+            </div>
           </div>
         </div>
 
         <div className="input-group">
           <label className="field-label">CRITICAL NOTES</label>
-          <textarea className="modern-input" style={{minHeight: '60px'}} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <textarea className="modern-input" style={{minHeight: '80px', resize: 'none'}} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
         <button type="submit" className="confirm-btn" disabled={loading}>
