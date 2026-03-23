@@ -65,21 +65,25 @@ const Dashboard = () => {
               <span className="brand-pin">📍</span>
               <h2 className="banner-title">Fleet Management</h2>
             </div>
+            
             <div className="banner-right">
+              <div className="notification-wrapper">
+                <span className="nav-icon">🔔</span>
+                <span className="notification-dot"></span>
+              </div>
               <button className="status-pill">System Online</button>
-              <div className="profile-group"><div className="avatar">OS</div></div>
+              <div className="profile-group">
+                <div className="avatar-circle">OS</div>
+              </div>
             </div>
           </header>
         </div>
 
         <div className="workspace-content">
           <nav className="side-nav">
-             {/* Top Section */}
              <div className="nav-top-group">
                 <div className="nav-link active">📊</div>
              </div>
-             
-             {/* Bottom Section */}
              <div className="nav-bottom-group">
                 <div className="nav-link">⚙️</div>
              </div>
