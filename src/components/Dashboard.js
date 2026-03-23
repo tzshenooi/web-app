@@ -15,6 +15,14 @@ const Dashboard = () => {
   const [mapFocus, setMapFocus] = useState(null);
   const [expandedUnit, setExpandedUnit] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Notification State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifications = [
+    { id: 1, type: 'emergency', msg: 'New trauma case: Padang Serai', time: '2m ago' },
+    { id: 2, type: 'status', msg: 'Unit 04 reached Base Station', time: '5m ago' },
+    { id: 3, type: 'alert', msg: 'Heavy traffic on Jalan Masjid', time: '12m ago' }
+  ];
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -67,10 +75,36 @@ const Dashboard = () => {
             </div>
             
             <div className="banner-right">
-              <div className="notification-wrapper">
-                <span className="nav-icon">🔔</span>
-                <span className="notification-dot"></span>
+              <div className="notification-container">
+                <div 
+                  className={`notification-wrapper ${showNotifications ? 'active' : ''}`}
+                  onClick={() => setShowNotifications(!showNotifications)}
+                >
+                  <span className="nav-icon">🔔</span>
+                  <span className="notification-dot"></span>
+                </div>
+
+                {showNotifications && (
+                  <div className="notification-dropdown">
+                    <header className="noti-header">
+                      <span>Notifications</span>
+                      <button onClick={() => setShowNotifications(false)}>Clear all</button>
+                    </header>
+                    <div className="noti-list">
+                      {notifications.map(n => (
+                        <div key={n.id} className="noti-item">
+                          <div className={`noti-indicator ${n.type}`}></div>
+                          <div className="noti-content">
+                            <p>{n.msg}</p>
+                            <span>{n.time}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+
               <button className="status-pill">System Online</button>
               <div className="profile-group">
                 <div className="avatar-circle">OS</div>
@@ -106,15 +140,9 @@ const Dashboard = () => {
                   {filteredDrivers.map(driver => {
                     const isExpanded = expandedUnit === driver.id;
                     return (
-                      <div 
-                        key={driver.id} 
-                        className={`unit-card-new ${isExpanded ? 'expanded' : ''}`}
-                        onClick={() => handleUnitClick(driver)}
-                      >
+                      <div key={driver.id} className={`unit-card-new ${isExpanded ? 'expanded' : ''}`} onClick={() => handleUnitClick(driver)}>
                         <div className="card-main-content">
-                          <div className="unit-visual">
-                            <div className="unit-icon-bg">🚑</div>
-                          </div>
+                          <div className="unit-visual"><div className="unit-icon-bg">🚑</div></div>
                           <div className="unit-content">
                             <span className="unit-name-text">{driver.name}</span>
                             <div className="unit-sub-text">17, May, 20 / 2h 34min</div>
@@ -126,17 +154,11 @@ const Dashboard = () => {
                           <div className="expanded-details">
                             <div className="timeline-item">
                               <div className="node green"></div>
-                              <div className="timeline-info">
-                                <strong>Base Station</strong>
-                                <span>Status: Ready</span>
-                              </div>
+                              <div className="timeline-info"><strong>Base Station</strong><span>Status: Ready</span></div>
                             </div>
                             <div className="timeline-item">
                               <div className="node red"></div>
-                              <div className="timeline-info">
-                                <strong>Idle</strong>
-                                <span>Waiting for dispatch</span>
-                              </div>
+                              <div className="timeline-info"><strong>Idle</strong><span>Waiting for dispatch</span></div>
                             </div>
                           </div>
                         )}
@@ -161,10 +183,7 @@ const Dashboard = () => {
               <h3 className="modal-header-title">New Incident Dispatch</h3>
               <button className="close-btn-modern" onClick={() => setShowModal(false)}>&times;</button>
             </header>
-            <CreateBooking 
-              onLocationSelected={setSelectedLocation}
-              onBookingCreated={() => { setShowModal(false); fetchData(); }} 
-            />
+            <CreateBooking onLocationSelected={setSelectedLocation} onBookingCreated={() => { setShowModal(false); fetchData(); }} />
           </div>
         </div>
       )}
