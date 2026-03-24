@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import Autocomplete from 'react-google-autocomplete';
 
-const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
+const CreateBooking = ({ onBookingCreated, onLocationSelected, drivers }) => {
   const [patientName, setPatientName] = useState('');
   const [location, setLocation] = useState(null);
   const [priority, setPriority] = useState('Medical');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // --- NEW: Calculate the nearest driver based on GPS ---
+  const nearestDriver = useMemo(() => {
+    if (!location || !drivers || drivers.length === 0) return null;
+
+    return drivers.reduce((prev, curr) => {
+      const getDist = (d) => Math.sqrt(Math.pow(d.current_lat - location.lat, 2) + Math.pow(d.current_lng - location.lng, 2));
+      return getDist(curr) < getDist(prev) ? curr : prev;
+    });
+  }, [location, drivers]);
 
   const handlePlaceSelect = (place) => {
     if (!place.geometry) return;
@@ -25,6 +35,7 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
     if (!location) return alert("Select a location.");
     setLoading(true);
     
+    // --- FIXED: Now including the driver_id ---
     const { error } = await supabase.from('bookings').insert([{
       patient_name: patientName,
       location: location.address,
@@ -32,12 +43,16 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
       longitude: location.lng,
       emergency_type: priority,
       notes: notes,
-      status: 'Pending'
+      status: 'Pending',
+      driver_id: nearestDriver ? nearestDriver.id : null // ASIGNING THE UNIT
     }]);
 
     if (!error) {
       onBookingCreated();
       onLocationSelected(null);
+    } else {
+      console.error("Supabase Error:", error.message);
+      alert("Error creating booking. Check console.");
     }
     setLoading(false);
   };
@@ -61,21 +76,22 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
           />
         </div>
 
-        <div className="input-row">
-          <div className="input-half">
-             <label className="field-label">PRIORITY</label>
-             <select className="modern-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
-               <option>Medical</option>
-               <option>Trauma</option>
-               <option>Cardiac</option>
-             </select>
-          </div>
-          <div className="input-half">
-            <label className="field-label">NEAREST UNIT</label>
-            <div className="nearest-unit-display" style={{ fontWeight: '700', marginTop: '10px' }}>
-              {location ? "Unit 04 (2.1km)" : "Awaiting GPS..."}
-            </div>
-          </div>
+        <div className="input-row" style={{ display: 'flex', gap: '20px', marginBottom: '22px' }}>
+  <div className="input-half" style={{ flex: 1 }}>
+     <label className="field-label">PRIORITY</label>
+     <select className="modern-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
+       <option>Medical</option>
+       <option>Trauma</option>
+       <option>Cardiac</option>
+     </select>
+  </div>
+  
+  <div className="input-half" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+    <label className="field-label" style={{ textAlign: 'left', display: 'block', width: '100%' }}>NEAREST UNIT</label>
+    <div className={`nearest-unit-box ${nearestDriver ? 'ready' : 'waiting'}`}>
+      {nearestDriver ? `Unit ${nearestDriver.name}` : "Awaiting GPS..."}
+    </div>
+  </div>
         </div>
 
         <div className="input-group">
@@ -83,7 +99,7 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected }) => {
           <textarea className="modern-input" style={{minHeight: '80px', resize: 'none'}} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <button type="submit" className="confirm-btn" disabled={loading}>
+        <button type="submit" className="confirm-btn" disabled={loading || !location}>
           {loading ? "COMMUNICATING..." : "CONFIRM DISPATCH"}
         </button>
       </form>
