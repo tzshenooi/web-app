@@ -153,7 +153,24 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 }
 
 /* --- CARDS & TIMELINE --- */
-.unit-card-new { padding: 20px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s; }
+.unit-card-new { 
+  padding: 20px; 
+  background: white;        /* 🟢 Ensure cards have a background */
+  margin-bottom: 12px;      /* 🟢 This creates the vertical gap */
+  border-radius: 16px;      /* 🟢 Gives rounded corners for a card look */
+  border: 1px solid #f1f5f9; /* 🟢 Full border instead of just bottom */
+  cursor: pointer; 
+  transition: all 0.2s; 
+  border-left: 6px solid transparent; 
+}
+.unit-card-new:hover {
+  background: #f8fafc;
+  transform: translateY(-2px); /* 🟢 Card lifts up slightly */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 🟢 Adds depth */
+}
+.fleet-list-container {
+  padding: 10px; /* 🟢 Adds breathing room around the whole list */
+}
 .unit-card-new.expanded { background: #f8fafc; }
 .unit-card-new.priority-critical.expanded { background: #fff5f5; }
 .unit-card-new.priority-high.expanded { background: #fffbf0; }
