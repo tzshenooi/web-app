@@ -281,11 +281,9 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 
 .nearest-unit-box.ready {
   color: #10b981;
-  border-color: rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.3); /* Light green border all around */
   background: rgba(16, 185, 129, 0.05);
-  /* 🟢 Move indicator to the left side to match text alignment */
-  border-left: 4px solid #10b981; 
-  border-right: none;
+  border-left: 4px solid #10b981; /* Thinner, cleaner accent bar */
 }
 
 /* Ensure the label also aligns left */
