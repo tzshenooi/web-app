@@ -10,14 +10,17 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected, drivers }) => {
   const [loading, setLoading] = useState(false);
 
   // --- NEW: Calculate the nearest driver based on GPS ---
-  const nearestDriver = useMemo(() => {
-    if (!location || !drivers || drivers.length === 0) return null;
+ const nearestDriver = useMemo(() => {
+  // 🟢 CHANGE: Filter to only include drivers with status 'Available'
+  const availableDrivers = drivers?.filter(d => d.status === 'Available') || [];
 
-    return drivers.reduce((prev, curr) => {
-      const getDist = (d) => Math.sqrt(Math.pow(d.current_lat - location.lat, 2) + Math.pow(d.current_lng - location.lng, 2));
-      return getDist(curr) < getDist(prev) ? curr : prev;
-    });
-  }, [location, drivers]);
+  if (!location || availableDrivers.length === 0) return null;
+
+  return availableDrivers.reduce((prev, curr) => {
+    const getDist = (d) => Math.sqrt(Math.pow(d.current_lat - location.lat, 2) + Math.pow(d.current_lng - location.lng, 2));
+    return getDist(curr) < getDist(prev) ? curr : prev;
+  });
+}, [location, drivers]);
 
   const handlePlaceSelect = (place) => {
     if (!place.geometry) return;
@@ -89,8 +92,11 @@ const CreateBooking = ({ onBookingCreated, onLocationSelected, drivers }) => {
   <div className="input-half" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
     <label className="field-label" style={{ textAlign: 'left', display: 'block', width: '100%' }}>NEAREST UNIT</label>
     <div className={`nearest-unit-box ${nearestDriver ? 'ready' : 'waiting'}`}>
-      {nearestDriver ? `Unit ${nearestDriver.name}` : "Awaiting GPS..."}
-    </div>
+  {nearestDriver 
+    ? `Unit ${nearestDriver.name}` 
+    : (drivers.some(d => d.status === 'Available') ? "Awaiting GPS..." : "NO UNITS ON DUTY")
+  }
+</div>
   </div>
         </div>
 

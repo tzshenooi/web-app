@@ -14,15 +14,21 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
   const [allDirections, setAllDirections] = useState([]);
   const [selectedHospital, setSelectedHospital] = useState(null); 
 
-  const syncMapData = useCallback(async () => {
-    const { data: drv } = await supabase.from('drivers').select('*');
-    const { data: bkg } = await supabase.from('bookings').select('*').eq('status', 'Pending');
-    const { data: hosp } = await supabase.from('hospitals').select('*');
+ const syncMapData = useCallback(async () => {
+  const { data: drv } = await supabase.from('drivers').select('*');
+  
+  // 🟢 CHANGE: Include 'Accepted' in the filter
+  const { data: bkg } = await supabase
+    .from('bookings')
+    .select('*')
+    .in('status', ['Pending', 'Accepted', 'Assigned']); 
     
-    if (drv) setDrivers(drv);
-    if (bkg) setBookings(bkg);
-    if (hosp) setHospitals(hosp);
-  }, []);
+  const { data: hosp } = await supabase.from('hospitals').select('*');
+  
+  if (drv) setDrivers(drv);
+  if (bkg) setBookings(bkg);
+  if (hosp) setHospitals(hosp);
+}, []);
 
   useEffect(() => {
     syncMapData();
@@ -52,10 +58,14 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
 
     bookings.forEach(b => {
       let assigned = drivers.find(d => d.id === b.driver_id);
-      if (assigned) {
-        requests.push({ id: b.id, origin: { lat: assigned.current_lat, lng: assigned.current_lng }, destination: { lat: b.latitude, lng: b.longitude } });
-      }
-    });
+      if (assigned && (b.status === 'Accepted' || b.status === 'Assigned')) {
+      requests.push({ 
+        id: b.id, 
+        origin: { lat: assigned.current_lat, lng: assigned.current_lng }, 
+        destination: { lat: b.latitude, lng: b.longitude } 
+      });
+    }
+  });
 
     const fetchRoutes = async () => {
       const results = await Promise.all(requests.map(req => 

@@ -11,7 +11,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif; }
 
 .app-shell { height: 100vh; width: 100vw; position: relative; }
 .map-background { position: absolute; inset: 0; z-index: 1; }
@@ -44,7 +44,6 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 .banner-title { font-size: 1.1rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
 
 .banner-right { display: flex; align-items: center; gap: 20px; }
-.status-pill { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
 .profile-group { border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 20px; }
 .avatar-circle { width: 36px; height: 36px; background: var(--accent-blue); color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; }
 
@@ -117,12 +116,63 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 .nav-link.active { background: var(--accent-blue); color: white; }
 
 /* --- HUD & SEARCH --- */
-.hud-panel { width: 340px; background: white; border-radius: 28px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
-.hud-header { padding: 25px 20px; border-bottom: 1px solid #f1f5f9; }
-.hud-title { font-weight: 800; font-size: 1.7rem; color: var(--text-main); }
+.hud-panel { 
+  width: 310px; 
+  background: #ffffff; 
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+}
 
-.search-wrapper { position: relative; margin-top: 15px; width: 100%; }
-.hud-search { width: 100%; padding: 12px 40px 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: border-color 0.2s; }
+.hud-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px; 
+}
+
+.hud-title {
+  font-size: 1.4rem !important; /* 🟢 Stronger header presence */
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.search-wrapper {
+  margin: 0; /* 🟢 Remove manual margins */
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.hud-search {
+  width: 100%; /* 🟢 Ensures it fills the 310px sidebar width minus padding */
+  height: 34px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  padding: 0 12px;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.hud-search::placeholder {
+  color: #cbd5e1;
+}
+.add-driver-btn-mini {
+  width: 24px; /* Even smaller to stay minimalist */
+  height: 24px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+.add-driver-btn-mini:hover {
+  color: var(--accent-blue);
+}
 .hud-search:focus { border-color: var(--accent-blue); }
 
 .search-clear-btn {
@@ -154,55 +204,127 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 
 /* --- CARDS & TIMELINE --- */
 .unit-card-new { 
-  padding: 20px; 
-  background: white;        /* 🟢 Ensure cards have a background */
-  margin-bottom: 12px;      /* 🟢 This creates the vertical gap */
-  border-radius: 16px;      /* 🟢 Gives rounded corners for a card look */
-  border: 1px solid #f1f5f9; /* 🟢 Full border instead of just bottom */
-  cursor: pointer; 
-  transition: all 0.2s; 
-  border-left: 6px solid transparent; 
+  padding: 14px 16px;
+  margin-bottom: 0; /* Gap is now handled by the container's 'gap' property */
+  border-radius: 12px; /* 🟢 Adds the rounded corners from the reference */
+  border: 1px solid #f1f5f9; /* 🟢 Light border all around instead of just bottom */
+  background: #ffffff;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02); /* 🟢 Very subtle depth like the refer */
 }
+
+/* 2. Facility Specific Style */
+/* .facility-card {
+  border-left-color: var(--accent-blue);
+} */
+.status-pill { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+
+/* 3. Status Pill Colors for Hospitals */
+.status-pill.available {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-pill.full {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  animation: mini-pulse 2s infinite; /* Optional: red pulse for full hospitals */
+}
+
+@keyframes mini-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* 4. Smooth Hover for the new card style */
 .unit-card-new:hover {
-  background: #f8fafc;
-  transform: translateY(-2px); /* 🟢 Card lifts up slightly */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 🟢 Adds depth */
+  background: #fcfdfe;
+  border-color: #e2e8f0;
+  transform: translateY(-1px);
 }
+
+
 .fleet-list-container {
-  padding: 10px; /* 🟢 Adds breathing room around the whole list */
+  padding: 12px; /* 🟢 Adds padding around the whole scrollable area */
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 🟢 This creates the uniform gap between each driver row */
 }
+
 .unit-card-new.expanded { background: #f8fafc; }
 .unit-card-new.priority-critical.expanded { background: #fff5f5; }
 .unit-card-new.priority-high.expanded { background: #fffbf0; }
 
-.card-main-content { display: flex; align-items: center; gap: 15px; }
-.unit-icon-bg { width: 44px; height: 44px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.unit-name-text { font-weight: 800; font-size: 1.1rem; color: #1e293b; }
-.unit-sub-text { font-size: 0.85rem; color: #94a3b8; }
-
-.trip-btn-ref { 
-  margin-left: auto; background: #f1f5f9; border: 1px solid transparent; 
-  padding: 8px 14px; border-radius: 10px; font-weight: 700; color: #64748b; 
-}
-.trip-btn-ref.active-trip { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); border-color: rgba(59, 130, 246, 0.2); }
-
-.expanded-details {
-  margin-top: 15px;
-  padding: 0 15px 15px 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* RECOMMENDED HOSPITAL BADGE */
-.recommendation-badge {
-  margin: 0 0 20px 0;
-  padding: 12px 16px;
-  background: rgba(59, 130, 246, 0.04);
-  border: 1.5px dashed var(--accent-blue);
-  border-radius: 14px;
+.card-main-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.available { background: #10b981; } /* Green */
+.status-dot.busy { background: #f59e0b; }      /* Orange */
+.status-dot.offline { background: #94a3b8; }   /* Gray */
+
+.unit-icon-bg { 
+  width: 32px; 
+  height: 32px; 
+  background: #f1f5f9; 
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+.unit-name-text { 
+  font-weight: 700; 
+  font-size: 1.02rem; /* 🟢 Bolder and larger for the primary ID */
+  color: #1e293b; 
+  letter-spacing: -0.01em;
+}
+
+.unit-sub-text { 
+  font-size: 0.8rem; /* 🟢 Increased from 0.7rem */
+  color: #64748b; 
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.trip-btn-ref { 
+  margin-left: auto;
+  padding: 4px 10px; 
+  font-size: 0.65rem; 
+  font-weight: 600;
+  border-radius: 4px; 
+  background: #f1f5f9;
+  border: none;
+  color: #64748b;
+}
+
+.trip-btn-ref.active-trip { 
+  background: rgba(59, 130, 246, 0.1); 
+  color: #3b82f6; 
+  border-color: rgba(59, 130, 246, 0.2); 
+}
+.expanded-details {
+  padding: 8px 0 8px 38px; /* Indent matches icon width */
+}
+/* RECOMMENDED HOSPITAL BADGE */
+.recommendation-badge {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
 }
 .badge-icon { font-size: 1.2rem; }
 .badge-text { display: flex; flex-direction: column; }
@@ -226,16 +348,50 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
 }
 .mini-dispatch-btn:hover { background: #2563eb; transform: scale(1.05); }
 
-.timeline-item { display: flex; gap: 15px; margin-bottom: 30px; position: relative; }
-.timeline-item:not(:last-child)::after { content: ""; position: absolute; left: 3px; top: 15px; bottom: -30px; width: 2px; background: #f1f5f9; }
-.node { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
-.node.green { background: var(--green); }
-.node.red { background: var(--accent-red); }
+.timeline-item {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px; /* Increased gap between nodes */
+  align-items: flex-start;
+  position: relative; /* 🟢 Required for the line to anchor correctly */
+}
+
+.timeline-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 3.5px; /* 🟢 Centers the line under a 7px or 8px wide dot */
+  top: 18px;    /* 🟢 Starts below the green dot */
+  bottom: -15px; /* 🟢 Extends down to reach the next red dot */
+  width: 1.5px;
+  background: #e2e8f0; /* 🟢 Subtle gray line */
+  z-index: 1;
+}
+
+/* Timeline nodes */
+.node.green { background: #10b981; }
+.node.busy { background: #f59e0b; } /* Matches the "Busy" theme */
+.node.red { background: #ef4444; }  /* For critical emergencies */
 
 .timeline-info { display: flex; flex-direction: column; gap: 4px; }
-.timeline-info strong { font-size: 1rem; color: #1e293b; font-weight: 700; }
-.timeline-info span { font-size: 0.85rem; color: #94a3b8; }
+
+.timeline-info strong {
+  display: block; /* Ensures label is on its own line */
+  font-size: 0.9rem; /* 🟢 Matches the primary name size for consistency */
+  color: #334155;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.timeline-info span {
+  display: block;
+  font-size: 0.8rem; /* 🟢 Significantly bigger than the current "Calculating..." text */
+  color: #94a3b8;
+  font-weight: 500;
+}
+
 .timeline-info span.live-eta { color: var(--accent-blue); font-weight: 700; }
+
+.timeline-item::after
 
 .complete-mission-btn {
   margin-top: 10px;
@@ -324,6 +480,8 @@ body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
   text-align: left;
   width: 100%;
 }
+
+
 
 /* Ensure the label also aligns right if the box is moving right */
 /*  */

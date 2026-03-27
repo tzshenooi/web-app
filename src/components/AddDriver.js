@@ -105,3 +105,93 @@
 // };
 
 // export default AddDriver;
+
+import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
+
+const AddDriver = ({ onComplete }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegisterDriver = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    // STEP 1: Create the User in Supabase Auth (for Flutter Login)
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+    });
+
+    if (authError) {
+  if (authError.message.includes("already registered")) {
+    // 🟢 OPTIONAL: Logic to attempt Step 2 again if they already exist in Auth
+    alert("This email is already in Auth. Please delete it from the Supabase Auth tab first to reset.");
+  } else {
+    alert("Registration Failed: " + authError.message);
+  }
+  setLoading(false);
+  return;
+}
+
+    // STEP 2: Link the Auth User to your 'drivers' data table
+    if (data.user) {
+      const { error: dbError } = await supabase
+        .from('drivers')
+        .insert([
+          { 
+            id: data.user.id, // Links Auth UID to the Driver Record
+            name: name, 
+            email: email, 
+            status: 'Offline', 
+            current_lat: 5.3544, 
+            current_lng: 100.3012 
+          }
+        ]);
+
+      if (dbError) {
+        // 🟢 ADD THIS LINE: It will reveal the exact cause in your Browser Console (F12)
+        console.error("Technical Database Error:", dbError);
+        
+        alert("Auth created, but DB record failed: " + dbError.message);
+      } else {
+        alert("✅ Unit Registered! Use these credentials in the Flutter app.");
+        if(onComplete) onComplete();
+        // Clear fields
+        setEmail('');
+        setPassword('');
+        setName('');
+      }
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="add-driver-container" style={{ padding: '10px' }}>
+      <form onSubmit={handleRegisterDriver}>
+        <div className="input-group">
+          <label className="field-label">DRIVER FULL NAME</label>
+          <input type="text" className="modern-input" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Ahmad bin Ali" />
+        </div>
+
+        <div className="input-group">
+          <label className="field-label">EMAIL ADDRESS</label>
+          <input type="email" className="modern-input" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="driver@ambulance.com" />
+        </div>
+
+        <div className="input-group">
+          <label className="field-label">PASSWORD (MIN 6 CHARS)</label>
+          <input type="password" className="modern-input" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••" />
+        </div>
+
+        <button type="submit" className="confirm-btn" style={{ background: '#2c3e50' }} disabled={loading}>
+          {loading ? "REGISTERING..." : "ADD NEW UNIT"}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default AddDriver;
