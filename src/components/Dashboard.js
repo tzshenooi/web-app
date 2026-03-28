@@ -32,7 +32,6 @@ const Dashboard = () => {
     libraries,
   });
 
-  // 🟢 FIXED: Fleet statistics logic to match the orange dot design
   const vehicleStats = useMemo(() => {
     return {
       available: drivers.filter(d => d.status === 'Available').length,
@@ -40,11 +39,19 @@ const Dashboard = () => {
         d.status === 'Busy' || 
         d.status === 'Accepted' || 
         d.status === 'Assigned' ||
+        d.status === 'Picked Up' ||
         d.status === 'Offline'
       ).length,
       total: drivers.length
     };
   }, [drivers]);
+
+  const facilityStats = useMemo(() => {
+    return {
+      available: hospitals.filter(h => h.beds > 0).length,
+      total: hospitals.length
+    };
+  }, [hospitals]);
 
   const fetchData = useCallback(async () => {
     const { data: drv } = await supabase.from('drivers').select('*');
@@ -61,31 +68,30 @@ const Dashboard = () => {
     audio.play().catch(e => console.log("Audio interaction required."));
   }, []);
 
+  // const getNearestHospital = useCallback((incidentLat, incidentLng, emergencyType) => {
+  //   if (hospitals.length === 0) return null;
+  //   const suitableHospitals = hospitals.filter(h => h.specialty === emergencyType && h.beds > 0);
+  //   const candidatePool = suitableHospitals.length > 0 ? suitableHospitals : hospitals.filter(h => h.beds > 0);
+  //   if (candidatePool.length === 0) return null;
+  //   return candidatePool.reduce((prev, curr) => {
+  //     const getDistance = (h) => Math.sqrt(Math.pow(h.latitude - incidentLat, 2) + Math.pow(h.longitude - incidentLng, 2));
+  //     return getDistance(curr) < getDistance(prev) ? curr : prev;
+  //   });
+  // }, [hospitals]);
+
   useEffect(() => {
     fetchData();
-    const channel = supabase
-      .channel('live-updates')
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'bookings' }, 
-        (payload) => {
+    const channel = supabase.channel('live-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
           if (payload.eventType === 'INSERT') {
             playDispatchSound();
-            setNotifications(prev => [
-              { id: payload.new.id, type: 'emergency', msg: `DISPATCH: ${payload.new.patient_name}`, time: 'Just now' }, 
-              ...prev
-            ]);
+            setNotifications(prev => [{ id: payload.new.id, type: 'emergency', msg: `DISPATCH: ${payload.new.patient_name}`, time: 'Just now' }, ...prev]);
           }
           fetchData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'drivers' }, 
-        () => fetchData()
-      )
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers' }, () => fetchData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, () => fetchData())
       .subscribe();
-
     return () => supabase.removeChannel(channel);
   }, [fetchData, playDispatchSound]);
 
@@ -100,9 +106,7 @@ const Dashboard = () => {
         if (status === "OK") {
             const element = response.rows[0].elements[0];
             if (element.status === "OK") {
-                setDrivers(prev => prev.map(d => 
-                    d.id === driver.id ? { ...d, live_eta: `${element.distance.text} (${element.duration.text})` } : d
-                ));
+                setDrivers(prev => prev.map(d => d.id === driver.id ? { ...d, live_eta: `${element.distance.text} (${element.duration.text})` } : d));
             }
         }
     });
@@ -111,13 +115,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (expandedUnit) {
       const driver = drivers.find(d => d.id === expandedUnit);
-      const activeTrip = bookings.find(b => 
-        b.driver_id === expandedUnit && 
-        (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'Pending')
-      );
-      if (driver && activeTrip) {
-        calculateETA(driver, activeTrip);
-      }
+      const activeTrip = bookings.find(b => b.driver_id === expandedUnit && (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'Pending' || b.status === 'Picked Up'));
+      if (driver && activeTrip) calculateETA(driver, activeTrip);
     }
   }, [expandedUnit, bookings, calculateETA, drivers]);
 
@@ -155,10 +154,7 @@ const Dashboard = () => {
                 </div>
                 {showNotifications && (
                   <div className="notification-dropdown">
-                    <header className="noti-header">
-                      <span>Live Alerts</span>
-                      <button onClick={() => setNotifications([])}>Clear all</button>
-                    </header>
+                    <header className="noti-header"><span>Live Alerts</span><button onClick={() => setNotifications([])}>Clear all</button></header>
                     <div className="noti-list">
                       {notifications.map(n => (
                         <div key={n.id} className="noti-item">
@@ -191,75 +187,118 @@ const Dashboard = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                   <h1 className="hud-title">{view === 'fleet' ? 'Active Vehicles' : 'Facilities'}</h1>
-                  {view === 'fleet' && (
+                  {view === 'fleet' ? (
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
                       (<span style={{ color: '#10b981' }}>{vehicleStats.available}</span>/<span style={{ color: '#f59e0b' }}>{vehicleStats.busy}</span>/{vehicleStats.total})
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
+                      (<span style={{ color: '#10b981' }}>{facilityStats.available}</span>/{facilityStats.total})
                     </span>
                   )}
                 </div>
                 <button className="add-driver-btn-mini" onClick={() => setShowAddDriverModal(true)}>＋</button>
               </div>
               <div className="search-wrapper">
-                <input type="text" placeholder="Enter Value" className="hud-search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder="Search..." className="hud-search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
             </header>
             
             <div className="hud-scroll-hide">
-              <div className="fleet-list-container">
-                {view === 'fleet' ? (
-                  filteredData.map(driver => {
-                    const isExpanded = expandedUnit === driver.id;
-                    const activeTrip = bookings.find(b => 
-                      b.driver_id === driver.id && 
-                      (b.status === 'Assigned' || b.status === 'Accepted' || b.status === 'Pending')
-                    );
-                    return (
-                      <div key={driver.id} className="unit-card-new" onClick={() => handleUnitClick(driver)}>
-                        <div className="card-main-content">
-                          {/* 🟢 Status Dot: Green for Available, Orange for Busy/Accepted */}
-                          <div className={`status-dot ${driver.status === 'Available' ? 'available' : (driver.status === 'Busy' || activeTrip ? 'busy' : 'offline')}`}></div>
-                          <div className="unit-icon-bg">🚑</div>
-                          <div className="unit-content">
-                            <span className="unit-name-text">{driver.name}</span>
-                            <div className="unit-sub-text">26, Mar, 26 / 1h 12min</div>
+        <div className="fleet-list-container">
+          {view === 'fleet' ? (
+            filteredData.map(driver => {
+              const isExpanded = expandedUnit === driver.id;
+              
+              // 🟢 Include 'Picked Up' in active trip search
+              const activeTrip = bookings.find(b => 
+                b.driver_id === driver.id && 
+                ['Pending', 'Assigned', 'Accepted', 'Picked Up'].includes(b.status)
+              );
+
+              return (
+                <div key={driver.id} className="unit-card-new" onClick={() => handleUnitClick(driver)}>
+                  <div className="card-main-content">
+                    {/* 🟢 STATUS DOT LOGIC: Prioritize Offline */}
+                    <div className={`status-dot ${
+                      driver.status === 'Offline' ? 'offline' : 
+                      (activeTrip ? 'busy' : 'available')
+                    }`}></div>
+                    
+                    <div className="unit-icon-bg">🚑</div>
+                    <div className="unit-content">
+                      <span className="unit-name-text">{driver.name}</span>
+                      <div className="unit-sub-text">26, Mar, 26 / 1h 12min</div>
+                    </div>
+                    <button className={`trip-btn-ref ${activeTrip ? 'active-trip' : ''}`}>
+                      {activeTrip ? 'Active ↗' : 'Trip ↗'}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="expanded-details" style={{ padding: '14px 0 10px 52px' }}>
+                      
+                      {/* 🟢 CASE 1: DRIVER IS OFFLINE */}
+                      {driver.status === 'Offline' ? (
+                        <div className="timeline-item">
+                          <div className="node offline"></div> {/* Ensure .node.offline is in your CSS */}
+                          <div className="timeline-info">
+                            <strong style={{ color: '#94a3b8' }}>Disconnected</strong>
+                            <span>Unit is currently Off Duty</span>
                           </div>
-                          <button className={`trip-btn-ref ${activeTrip ? 'active-trip' : ''}`}>
-                            {activeTrip ? 'Active ↗' : 'Trip ↗'}
-                          </button>
                         </div>
-                        {isExpanded && (
-                          <div className="expanded-details" style={{ padding: '14px 0 10px 52px' }}>
+                      ) : (
+                        /* CASE 2: DRIVER IS ONLINE */
+                        <>
+                          <div className="timeline-item">
+                            <div className="node green"></div>
+                            <div className="timeline-info">
+                              <strong>Base Station</strong>
+                              <span>Departure: {activeTrip?.created_at ? new Date(activeTrip.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "4:00 PM"}</span>
+                            </div>
+                          </div>
+
+                          {activeTrip && activeTrip.status !== 'Pending' ? (
+                            <>
+                              {/* Node 2: Incident Scene */}
+                              <div className="timeline-item">
+                                <div className={`node ${activeTrip.status === 'Picked Up' ? 'green' : 'busy'}`}></div> 
+                                <div className="timeline-info">
+                                  <strong>Incident Scene</strong>
+                                  <span>{activeTrip.status === 'Picked Up' ? '✅ Patient Secured' : (driver.live_eta || "In Transit")}</span>
+                                </div>
+                              </div>
+
+                              {/* Node 3: Hospital Scene */}
+                              {activeTrip.status === 'Picked Up' && (
+                                <div className="timeline-item">
+                                  <div className="node busy"></div> 
+                                  <div className="timeline-info">
+                                    <strong>Hospital Scene</strong>
+                                    <span style={{ color: '#2563eb', fontWeight: 'bold' }}>
+                                      {hospitals.find(h => h.id === activeTrip.destination_facility)?.name || "Facility Selected"}
+                                    </span>
+                                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>ETA: {driver.live_eta || "Calculating..."}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            /* CASE 3: ONLINE AND READY */
                             <div className="timeline-item">
                               <div className="node green"></div>
                               <div className="timeline-info">
-                                <strong>Base Station</strong>
-                                <span>Mar 26, 4:00 PM</span>
+                                <strong>Ready</strong>
+                                <span>Standby for SOS</span>
                               </div>
                             </div>
-                            {activeTrip && activeTrip.status !== 'Pending' ? (
-                              <div className="timeline-item">
-                                {/* 🟢 Node Color: Orange to match 'Busy' design */}
-                                <div className="node busy"></div>
-                                <div className="timeline-info">
-                                  <strong>Incident Scene</strong>
-                                  <span className={driver.live_eta ? "live-eta" : ""}>
-                                    {driver.live_eta || "Calculating..."}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="timeline-item">
-                                <div className="node green"></div>
-                                <div className="timeline-info">
-                                  <strong>Ready</strong>
-                                  <span>Standby</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
                   })
                 ) : (
                   filteredData.map(h => (
@@ -295,10 +334,7 @@ const Dashboard = () => {
       {showAddDriverModal && (
         <div className="modal-overlay" onClick={() => setShowAddDriverModal(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header">
-              <h3 className="modal-header-title">➕ Register Unit</h3>
-              <button className="close-btn-modern" onClick={() => setShowAddDriverModal(false)}>&times;</button>
-            </header>
+            <header className="modal-header"><h3 className="modal-header-title">➕ Register Unit</h3><button className="close-btn-modern" onClick={() => setShowAddDriverModal(false)}>&times;</button></header>
             <AddDriver onComplete={() => { setShowAddDriverModal(false); fetchData(); }} />
           </div>
         </div>

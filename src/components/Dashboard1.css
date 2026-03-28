@@ -266,16 +266,36 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px; /* Space between dot and icon */
   flex-shrink: 0;
 }
 
-.status-dot.available { background: #10b981; } /* Green */
-.status-dot.busy { background: #f59e0b; }      /* Orange */
-.status-dot.offline { background: #94a3b8; }   /* Gray */
+/* The small status dot */
+.status-dot.offline {
+  background-color: #94a3b8; /* Slate gray */
+}
 
+.status-dot.available {
+  background-color: #10b981; /* Emerlad Green */
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+/* The timeline node dot */
+.node.offline {
+  background-color: #cbd5e1;
+  border: 2px solid #94a3b8;
+  box-shadow: none; /* Remove any pulse effect for offline units */
+}
+.status-dot.busy {
+  background-color: #f59e0b; /* Amber/Orange */
+  animation: pulse-busy 2s infinite;
+}    /* Orange */
+.unit-card-new:has(.status-dot.offline) {
+  opacity: 0.8;
+}
 .unit-icon-bg { 
   width: 32px; 
   height: 32px; 
@@ -349,28 +369,54 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 .mini-dispatch-btn:hover { background: #2563eb; transform: scale(1.05); }
 
 .timeline-item {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 18px; /* Increased gap between nodes */
-  align-items: flex-start;
-  position: relative; /* 🟢 Required for the line to anchor correctly */
+  position: relative;
+  padding-bottom: 20px;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 4px; /* Aligns with the dots */
+  padding-left: 20px;
 }
 
 .timeline-item:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  left: 3.5px; /* 🟢 Centers the line under a 7px or 8px wide dot */
-  top: 18px;    /* 🟢 Starts below the green dot */
-  bottom: -15px; /* 🟢 Extends down to reach the next red dot */
-  width: 1.5px;
-  background: #e2e8f0; /* 🟢 Subtle gray line */
-  z-index: 1;
+  border-left: 2px solid transparent;
 }
 
+.node {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+  position: absolute;
+  z-index: 2;
+  left: -5px;
+}
 /* Timeline nodes */
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+@keyframes pulse-busy {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+
 .node.green { background: #10b981; }
-.node.busy { background: #f59e0b; } /* Matches the "Busy" theme */
-.node.red { background: #ef4444; }  /* For critical emergencies */
+.node.busy {
+  background-color: #f59e0b !important;
+  animation: pulse-ring 2s infinite; /* 🟢 This makes it pulse */
+}.node.red {
+  background-color: #ef4444 !important;
+  animation: pulse-ring-red 2s infinite;
+}  /* For critical emergencies */
+
+@keyframes pulse-ring-red {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
 
 .timeline-info { display: flex; flex-direction: column; gap: 4px; }
 
