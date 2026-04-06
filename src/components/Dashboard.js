@@ -342,6 +342,9 @@ const Dashboard = () => {
                     path="M3 11.5h18M6.5 15.5h11M8 19h8M7 11.5V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4.5"
                   />
                 </div>
+                <div className="nav-link nav-dispatch" onClick={() => setShowModal(true)} title="New Dispatch">
+                  <SideIcon active={false} path="M12 5v14M5 12h14" />
+                </div>
                 <div className={`nav-link ${view === 'hospitals' ? 'active' : ''}`} onClick={() => setView('hospitals')} title="Hospitals">
                   <SideIcon
                     active={view === 'hospitals'}
@@ -474,7 +477,6 @@ const Dashboard = () => {
             </div>
           </main>
         </div>
-        <button className="fab-dispatch" onClick={() => setShowModal(true)}><span>🚑</span><span>New Dispatch</span></button>
       </div>
 
       {showModal && (

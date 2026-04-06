@@ -27,10 +27,10 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 .map-overlay-control.active { border: 2.5px solid var(--accent-blue); background: #f0f7ff; }
 
 .ui-container { position: absolute; inset: 0; z-index: 100; pointer-events: none; display: flex; flex-direction: column; }
-.side-nav, .hud-panel, .fab-dispatch, .modal-overlay, .map-overlay-control { pointer-events: auto; }
+.side-nav, .hud-panel, .modal-overlay, .map-overlay-control { pointer-events: auto; }
 
 .ui-container { position: absolute; inset: 0; z-index: 100; pointer-events: none; display: flex; flex-direction: column; }
-.banner-anchor, .side-nav, .hud-panel, .fab-dispatch, .modal-overlay { pointer-events: auto; }
+.banner-anchor, .side-nav, .hud-panel, .modal-overlay { pointer-events: auto; }
 
 /* --- HEADER --- */
 .banner-anchor { padding: 12px 20px; }
@@ -114,6 +114,18 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   transform: translateY(-2px); /* Subtle lift effect */
 }
 .nav-link.active { background: var(--accent-blue); color: white; }
+
+.nav-link.nav-dispatch {
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.nav-link.nav-dispatch:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+.nav-link.nav-dispatch svg path {
+  stroke: #fef2f2;
+}
 
 /* --- HUD & SEARCH --- */
 .hud-panel { 
@@ -474,24 +486,6 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 .modern-input, .modern-select { width: 100%; padding: 14px 18px; border-radius: 15px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 1rem; margin-bottom: 22px; outline: none; }
 .confirm-btn { width: 100%; padding: 18px; background: var(--accent-blue); color: white; border: none; border-radius: 18px; font-weight: 800; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; margin-top: 15px; }
 
-.fab-dispatch { 
-  position: absolute; 
-  bottom: 35px; 
-  /* 🟢 Change 'right' to 'left' or increase the 'right' value */
-  right: 100px; /* Moving it further left so it doesn't hit zoom buttons */
-  background: var(--accent-red); 
-  color: white; 
-  border: none; 
-  padding: 16px 32px; 
-  border-radius: 50px; 
-  font-weight: 800; 
-  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4); 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  z-index: 1000; /* Ensures it stays above the map */
-}
 .nearest-unit-box {
   width: 100%;
   height: 50px; 
