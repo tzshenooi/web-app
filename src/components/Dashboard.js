@@ -8,6 +8,40 @@ import './Dashboard1.css';
 
 const libraries = ['places'];
 
+const SideIcon = ({ path, active = false, viewBox = '0 0 24 24' }) => (
+  <svg
+    width="18"
+    height="18"
+    viewBox={viewBox}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ display: 'block' }}
+    aria-hidden="true"
+  >
+    <path
+      d={path}
+      stroke={active ? '#60A5FA' : '#F8FAFC'}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const HeaderLocationIcon = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10z" stroke="#F8FAFC" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 13.5A2.5 2.5 0 1 0 12 8.5A2.5 2.5 0 1 0 12 13.5z" stroke="#F8FAFC" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const HeaderBellIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M15.5 17H8.5L9.2 15.8C9.7 14.9 10 13.8 10 12.8V10.8C10 9.1 11.3 7.8 13 7.8C14.7 7.8 16 9.1 16 10.8V12.8C16 13.8 16.3 14.9 16.8 15.8L17.5 17H15.5Z" stroke="#E2E8F0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M11.7 19.3C11.9 19.7 12.4 20 13 20C13.6 20 14.1 19.7 14.3 19.3" stroke="#E2E8F0" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
 // --- 🟢 INTERNAL COMPONENT: VerificationQueue ---
 const VerificationQueue = ({ onStatusChange }) => {
   const [pendingDrivers, setPendingDrivers] = useState([]);
@@ -233,7 +267,15 @@ const Dashboard = () => {
   useEffect(() => {
     if (expandedUnit) {
       const driver = drivers.find(d => d.id === expandedUnit);
-      const activeTrip = bookings.find(b => b.driver_id === expandedUnit && (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'Pending' || b.status === 'Picked Up'));
+      const activeTrip = bookings.find(
+        b =>
+          b.driver_id === expandedUnit &&
+          (b.status === 'Accepted' ||
+            b.status === 'Assigned' ||
+            b.status === 'Pending' ||
+            b.status === 'En Route' ||
+            b.status === 'Picked Up')
+      );
       if (driver && activeTrip) calculateETA(driver, activeTrip);
     }
   }, [expandedUnit, bookings, calculateETA, drivers]);
@@ -261,13 +303,13 @@ const Dashboard = () => {
         <div className="banner-anchor">
           <header className="main-banner">
             <div className="banner-left">
-              <span>📍</span>
+              <span className="brand-mark"><HeaderLocationIcon /></span>
               <h2 className="banner-title">Fleet Management</h2>
             </div>
             <div className="banner-right">
               <div className="notification-container">
                 <div className={`notification-wrapper ${showNotifications ? 'active' : ''}`} onClick={() => setShowNotifications(!showNotifications)}>
-                  <span className="nav-icon">🔔</span>
+                  <span className="nav-icon"><HeaderBellIcon /></span>
                   {notifications.length > 0 && <span className="notification-dot pulse"></span>}
                 </div>
                 {showNotifications && (
@@ -294,11 +336,30 @@ const Dashboard = () => {
         <div className="workspace-content">
           <nav className="side-nav">
              <div className="nav-top-group">
-                <div className={`nav-link ${view === 'fleet' ? 'active' : ''}`} onClick={() => setView('fleet')}>📊</div>
-                <div className={`nav-link ${view === 'hospitals' ? 'active' : ''}`} onClick={() => setView('hospitals')}>🏥</div>
-                <div className={`nav-link ${view === 'verify' ? 'active' : ''}`} onClick={() => setView('verify')}>🛡️</div>
+                <div className={`nav-link ${view === 'fleet' ? 'active' : ''}`} onClick={() => setView('fleet')} title="Fleet">
+                  <SideIcon
+                    active={view === 'fleet'}
+                    path="M3 11.5h18M6.5 15.5h11M8 19h8M7 11.5V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4.5"
+                  />
+                </div>
+                <div className={`nav-link ${view === 'hospitals' ? 'active' : ''}`} onClick={() => setView('hospitals')} title="Hospitals">
+                  <SideIcon
+                    active={view === 'hospitals'}
+                    path="M8 4v16M16 4v16M4 8h16M4 14h16M4 4h16v16H4z"
+                  />
+                </div>
+                <div className={`nav-link ${view === 'verify' ? 'active' : ''}`} onClick={() => setView('verify')} title="Verify Drivers">
+                  <SideIcon
+                    active={view === 'verify'}
+                    path="M5 12l4 4 10-10M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10-4.5 10-10 10z"
+                  />
+                </div>
              </div>
-             <div className="nav-bottom-group"><div className="nav-link">⚙️</div></div>
+             <div className="nav-bottom-group">
+               <div className="nav-link" title="Settings">
+                 <SideIcon path="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5zM19 12a7.8 7.8 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.9 7.9 0 0 0-2.1-1.2L14 3h-4l-.4 2.6a7.9 7.9 0 0 0-2.1 1.2l-2.4-1-2 3.4 2 1.6A7.8 7.8 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2.1 1.2L10 21h4l.4-2.6c.8-.3 1.5-.7 2.1-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z" />
+               </div>
+             </div>
           </nav>
 
           <main className="hud-panel">
@@ -336,7 +397,7 @@ const Dashboard = () => {
                     const isExpanded = expandedUnit === driver.id;
                     const activeTrip = bookings.find(b => 
                       b.driver_id === driver.id && 
-                      ['Pending', 'Assigned', 'Accepted', 'Picked Up'].includes(b.status)
+                      ['Pending', 'Assigned', 'Accepted', 'En Route', 'Picked Up'].includes(b.status)
                     );
 
                     return (
