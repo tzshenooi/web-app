@@ -3,7 +3,6 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import { supabase, supabaseAdmin } from '../supabaseClient';
 import MapComponent from './MapComponent';
 import CreateBooking from './CreateBooking';
-import AddDriver from './AddDriver'; 
 import './Dashboard1.css'; 
 
 const libraries = ['places'];
@@ -170,7 +169,6 @@ const Dashboard = () => {
   const [hospitals, setHospitals] = useState([]); 
   const [view, setView] = useState('fleet'); 
   const [showModal, setShowModal] = useState(false);
-  const [showAddDriverModal, setShowAddDriverModal] = useState(false);
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
@@ -383,7 +381,6 @@ const Dashboard = () => {
                     </span>
                   )}
                 </div>
-                <button className="add-driver-btn-mini" onClick={() => setShowAddDriverModal(true)}>＋</button>
               </div>
               <div className="search-wrapper">
                 <input type="text" placeholder="Search..." className="hud-search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -484,15 +481,6 @@ const Dashboard = () => {
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <header className="modal-header"><h3 className="modal-header-title">New Dispatch</h3><button className="close-btn-modern" onClick={() => setShowModal(false)}>&times;</button></header>
             <CreateBooking drivers={drivers} onLocationSelected={setSelectedLocation} onBookingCreated={() => { setShowModal(false); fetchData(); }} />
-          </div>
-        </div>
-      )}
-
-      {showAddDriverModal && (
-        <div className="modal-overlay" onClick={() => setShowAddDriverModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header"><h3 className="modal-header-title">➕ Register Unit</h3><button className="close-btn-modern" onClick={() => setShowAddDriverModal(false)}>&times;</button></header>
-            <AddDriver onComplete={() => { setShowAddDriverModal(false); fetchData(); }} />
           </div>
         </div>
       )}
