@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useJsApiLoader } from '@react-google-maps/api';
-import { supabase } from '../supabaseClient';
+import { supabase, supabaseAdmin } from '../supabaseClient';
 import MapComponent from './MapComponent';
 import CreateBooking from './CreateBooking';
 import AddDriver from './AddDriver'; 
@@ -8,6 +8,128 @@ import './Dashboard1.css';
 
 const libraries = ['places'];
 
+// --- 🟢 INTERNAL COMPONENT: VerificationQueue ---
+const VerificationQueue = ({ onStatusChange }) => {
+  const [pendingDrivers, setPendingDrivers] = useState([]);
+
+  const openDocUrl = (url, label) => {
+    const s = url != null && typeof url === 'string' ? url.trim() : '';
+    if (!s) {
+      window.alert(
+        `No ${label} document URL in the database. Drivers added from the web admin have no uploads; register drivers in the mobile app (IC + license), or paste a Storage public URL manually in Supabase.`
+      );
+      return;
+    }
+    window.open(s, '_blank', 'noopener,noreferrer');
+  };
+
+  const fetchPending = useCallback(async () => {
+    const { data } = await supabase.from('drivers').select('*').eq('status', 'Pending');
+    if (data) setPendingDrivers(data);
+  }, []);
+
+  useEffect(() => {
+    fetchPending();
+
+    const channel = supabase
+      .channel('verification-queue-drivers')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'drivers' },
+        () => {
+          fetchPending();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPending]);
+
+  const handleVerify = async (id, newStatus) => {
+    try {
+      if (newStatus === 'Rejected') {
+        const confirmReject = window.confirm("Are you sure? This will delete the driver's login account and database record entirely.");
+        if (!confirmReject) return;
+  
+        // 1. Delete from Supabase Auth using the Admin client
+        // This is the critical part that removes the email from the 'Authentication' tab
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
+        
+        // If the user is already missing from Auth, we still want to clean up the DB
+        if (authError && authError.message !== 'User not found') {
+          throw authError;
+        }
+  
+        // 2. Delete the record from the 'drivers' table
+        const { error: dbError } = await supabase.from('drivers').delete().eq('id', id);
+        if (dbError) throw dbError;
+  
+        alert("Driver rejected: Auth and Database records successfully deleted.");
+      } else {
+        // Standard approval logic: Update status to 'Offline'
+        const { error } = await supabase
+          .from('drivers')
+          .update({ status: newStatus })
+          .eq('id', id);
+  
+        if (error) throw error;
+        alert(`Driver account has been approved.`);
+      }
+  
+      // Refresh the UI lists
+      fetchPending(); 
+      if (onStatusChange) onStatusChange(); 
+    } catch (err) {
+      console.error("Technical Error during deletion:", err);
+      alert("Action failed: " + err.message);
+    }
+  };
+
+  return (
+    <div className="fleet-list-container">
+      {pendingDrivers.length === 0 ? (
+        <p style={{ color: '#64748b', textAlign: 'center', marginTop: '20px' }}>No pending drivers to verify.</p>
+      ) : (
+        pendingDrivers.map(driver => (
+          <div key={driver.id} className="unit-card-new" style={{ cursor: 'default' }}>
+            <div className="card-main-content" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <strong className="unit-name-text">{driver.name}</strong>
+              <span className="unit-sub-text">IC: {driver.ic_number}</span>
+              
+              {/* Document Review Section */}
+              <div style={{ display: 'flex', gap: '8px', margin: '12px 0' }}>
+                <button 
+                  onClick={() => openDocUrl(driver.ic_front_url, 'MyKad')}
+                  className="trip-btn-ref active-trip"
+                >View MyKad ↗</button>
+                <button 
+                  onClick={() => openDocUrl(driver.license_front_url, 'license')}
+                  className="trip-btn-ref active-trip"
+                >View License ↗</button>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                <button 
+                  onClick={() => handleVerify(driver.id, 'Offline')}
+                  className="status-pill available" style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                >APPROVE</button>
+                <button 
+                  onClick={() => handleVerify(driver.id, 'Rejected')}
+                  className="status-pill full" style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                >REJECT</button>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+};
+
+// --- 🔵 MAIN COMPONENT: Dashboard ---
 const Dashboard = () => {
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -54,9 +176,16 @@ const Dashboard = () => {
   }, [hospitals]);
 
   const fetchData = useCallback(async () => {
-    const { data: drv } = await supabase.from('drivers').select('*');
+    // 🟢 UPDATED: Exclude 'Pending' and 'Rejected' drivers from the active fleet list
+    const { data: drv } = await supabase
+      .from('drivers')
+      .select('*')
+      .neq('status', 'Pending')
+      .neq('status', 'Rejected');
+
     const { data: bkg } = await supabase.from('bookings').select('*').neq('status', 'Completed');
     const { data: hosp } = await supabase.from('hospitals').select('*'); 
+    
     if (drv) setDrivers(drv);
     if (bkg) setBookings(bkg);
     if (hosp) setHospitals(hosp);
@@ -67,17 +196,6 @@ const Dashboard = () => {
     audio.volume = 0.4;
     audio.play().catch(e => console.log("Audio interaction required."));
   }, []);
-
-  // const getNearestHospital = useCallback((incidentLat, incidentLng, emergencyType) => {
-  //   if (hospitals.length === 0) return null;
-  //   const suitableHospitals = hospitals.filter(h => h.specialty === emergencyType && h.beds > 0);
-  //   const candidatePool = suitableHospitals.length > 0 ? suitableHospitals : hospitals.filter(h => h.beds > 0);
-  //   if (candidatePool.length === 0) return null;
-  //   return candidatePool.reduce((prev, curr) => {
-  //     const getDistance = (h) => Math.sqrt(Math.pow(h.latitude - incidentLat, 2) + Math.pow(h.longitude - incidentLng, 2));
-  //     return getDistance(curr) < getDistance(prev) ? curr : prev;
-  //   });
-  // }, [hospitals]);
 
   useEffect(() => {
     fetchData();
@@ -178,6 +296,7 @@ const Dashboard = () => {
              <div className="nav-top-group">
                 <div className={`nav-link ${view === 'fleet' ? 'active' : ''}`} onClick={() => setView('fleet')}>📊</div>
                 <div className={`nav-link ${view === 'hospitals' ? 'active' : ''}`} onClick={() => setView('hospitals')}>🏥</div>
+                <div className={`nav-link ${view === 'verify' ? 'active' : ''}`} onClick={() => setView('verify')}>🛡️</div>
              </div>
              <div className="nav-bottom-group"><div className="nav-link">⚙️</div></div>
           </nav>
@@ -186,12 +305,15 @@ const Dashboard = () => {
             <header className="hud-header">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <h1 className="hud-title">{view === 'fleet' ? 'Active Vehicles' : 'Facilities'}</h1>
-                  {view === 'fleet' ? (
+                  <h1 className="hud-title">
+                    {view === 'fleet' ? 'Active Vehicles' : view === 'hospitals' ? 'Facilities' : 'Verify Drivers'}
+                  </h1>
+                  {view === 'fleet' && (
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
                       (<span style={{ color: '#10b981' }}>{vehicleStats.available}</span>/<span style={{ color: '#f59e0b' }}>{vehicleStats.busy}</span>/{vehicleStats.total})
                     </span>
-                  ) : (
+                  )}
+                  {view === 'hospitals' && (
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
                       (<span style={{ color: '#10b981' }}>{facilityStats.available}</span>/{facilityStats.total})
                     </span>
@@ -205,117 +327,89 @@ const Dashboard = () => {
             </header>
             
             <div className="hud-scroll-hide">
-        <div className="fleet-list-container">
-          {view === 'fleet' ? (
-            filteredData.map(driver => {
-              const isExpanded = expandedUnit === driver.id;
-              
-              // 🟢 Include 'Picked Up' in active trip search
-              const activeTrip = bookings.find(b => 
-                b.driver_id === driver.id && 
-                ['Pending', 'Assigned', 'Accepted', 'Picked Up'].includes(b.status)
-              );
+              {/* 🟢 CONDITIONAL VIEW LOGIC */}
+              {view === 'verify' ? (
+                <VerificationQueue onStatusChange={fetchData} />
+              ) : view === 'fleet' ? (
+                <div className="fleet-list-container">
+                  {filteredData.map(driver => {
+                    const isExpanded = expandedUnit === driver.id;
+                    const activeTrip = bookings.find(b => 
+                      b.driver_id === driver.id && 
+                      ['Pending', 'Assigned', 'Accepted', 'Picked Up'].includes(b.status)
+                    );
 
-              return (
-                <div key={driver.id} className="unit-card-new" onClick={() => handleUnitClick(driver)}>
-                  <div className="card-main-content">
-                    {/* 🟢 STATUS DOT LOGIC: Prioritize Offline */}
-                    <div className={`status-dot ${
-                      driver.status === 'Offline' ? 'offline' : 
-                      (activeTrip ? 'busy' : 'available')
-                    }`}></div>
-                    
-                    <div className="unit-icon-bg">🚑</div>
-                    <div className="unit-content">
-                      <span className="unit-name-text">{driver.name}</span>
-                      <div className="unit-sub-text">26, Mar, 26 / 1h 12min</div>
-                    </div>
-                    <button className={`trip-btn-ref ${activeTrip ? 'active-trip' : ''}`}>
-                      {activeTrip ? 'Active ↗' : 'Trip ↗'}
-                    </button>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="expanded-details" style={{ padding: '14px 0 10px 52px' }}>
-                      
-                      {/* 🟢 CASE 1: DRIVER IS OFFLINE */}
-                      {driver.status === 'Offline' ? (
-                        <div className="timeline-item">
-                          <div className="node offline"></div> {/* Ensure .node.offline is in your CSS */}
-                          <div className="timeline-info">
-                            <strong style={{ color: '#94a3b8' }}>Disconnected</strong>
-                            <span>Unit is currently Off Duty</span>
+                    return (
+                      <div key={driver.id} className="unit-card-new" onClick={() => handleUnitClick(driver)}>
+                        <div className="card-main-content">
+                          <div className={`status-dot ${
+                            driver.status === 'Offline' ? 'offline' : 
+                            (activeTrip ? 'busy' : 'available')
+                          }`}></div>
+                          
+                          <div className="unit-icon-bg">🚑</div>
+                          <div className="unit-content">
+                            <span className="unit-name-text">{driver.name}</span>
+                            <div className="unit-sub-text">Active Ops / Standby</div>
                           </div>
+                          <button className={`trip-btn-ref ${activeTrip ? 'active-trip' : ''}`}>
+                            {activeTrip ? 'Active ↗' : 'Trip ↗'}
+                          </button>
                         </div>
-                      ) : (
-                        /* CASE 2: DRIVER IS ONLINE */
-                        <>
-                          <div className="timeline-item">
-                            <div className="node green"></div>
-                            <div className="timeline-info">
-                              <strong>Base Station</strong>
-                              <span>Departure: {activeTrip?.created_at ? new Date(activeTrip.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "4:00 PM"}</span>
-                            </div>
-                          </div>
 
-                          {activeTrip && activeTrip.status !== 'Pending' ? (
-                            <>
-                              {/* Node 2: Incident Scene */}
+                        {isExpanded && (
+                          <div className="expanded-details" style={{ padding: '14px 0 10px 52px' }}>
+                            {driver.status === 'Offline' ? (
                               <div className="timeline-item">
-                                <div className={`node ${activeTrip.status === 'Picked Up' ? 'green' : 'busy'}`}></div> 
+                                <div className="node offline"></div>
                                 <div className="timeline-info">
-                                  <strong>Incident Scene</strong>
-                                  <span>{activeTrip.status === 'Picked Up' ? '✅ Patient Secured' : (driver.live_eta || "In Transit")}</span>
+                                  <strong style={{ color: '#94a3b8' }}>Disconnected</strong>
+                                  <span>Unit is currently Off Duty</span>
                                 </div>
                               </div>
-
-                              {/* Node 3: Hospital Scene */}
-                              {activeTrip.status === 'Picked Up' && (
+                            ) : (
+                              <>
                                 <div className="timeline-item">
-                                  <div className="node busy"></div> 
+                                  <div className="node green"></div>
                                   <div className="timeline-info">
-                                    <strong>Hospital Scene</strong>
-                                    <span style={{ color: '#2563eb', fontWeight: 'bold' }}>
-                                      {hospitals.find(h => h.id === activeTrip.destination_facility)?.name || "Facility Selected"}
-                                    </span>
-                                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>ETA: {driver.live_eta || "Calculating..."}</div>
+                                    <strong>Status: {driver.status}</strong>
+                                    <span>Last GPS update received</span>
                                   </div>
                                 </div>
-                              )}
-                            </>
-                          ) : (
-                            /* CASE 3: ONLINE AND READY */
-                            <div className="timeline-item">
-                              <div className="node green"></div>
-                              <div className="timeline-info">
-                                <strong>Ready</strong>
-                                <span>Standby for SOS</span>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
+                                {activeTrip && (
+                                  <div className="timeline-item">
+                                    <div className="node busy"></div>
+                                    <div className="timeline-info">
+                                      <strong>Mission: {activeTrip.patient_name}</strong>
+                                      <span>ETA: {driver.live_eta || "Calculating..."}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-                  })
-                ) : (
-                  filteredData.map(h => (
+              ) : (
+                <div className="fleet-list-container">
+                  {filteredData.map(h => (
                     <div key={h.id} className="unit-card-new facility-card">
                       <div className="card-main-content">
                         <div className={`status-dot ${h.beds > 0 ? 'available' : 'busy'}`}></div>
                         <div className="unit-icon-bg">🏥</div>
                         <div className="unit-content">
                           <span className="unit-name-text">{h.name}</span>
-                          <div className="unit-sub-text">• {h.specialty} {h.type || ""}</div>
+                          <div className="unit-sub-text">• {h.specialty}</div>
                         </div>
                         <div className={`status-pill ${h.beds > 0 ? 'available' : 'full'}`}>{h.beds} Beds</div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </main>
         </div>
