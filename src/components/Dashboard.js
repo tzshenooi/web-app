@@ -239,10 +239,41 @@ const Dashboard = () => {
           }
           fetchData();
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers' }, () => fetchData())
+      // Keep fleet state instant without full refetch on each toggle.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, (payload) => {
+        const isVisibleDriver = (d) => d && d.status !== 'Pending' && d.status !== 'Rejected';
+
+        if (payload.eventType === 'DELETE') {
+          setDrivers(prev => prev.filter(d => d.id !== payload.old.id));
+          return;
+        }
+
+        const updatedDriver = payload.new;
+        if (!updatedDriver || !updatedDriver.id) {
+          fetchData();
+          return;
+        }
+
+        setDrivers(prev => {
+          const exists = prev.some(d => d.id === updatedDriver.id);
+          if (!isVisibleDriver(updatedDriver)) {
+            return prev.filter(d => d.id !== updatedDriver.id);
+          }
+          if (exists) {
+            return prev.map(d => (d.id === updatedDriver.id ? { ...d, ...updatedDriver } : d));
+          }
+          return [updatedDriver, ...prev];
+        });
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, () => fetchData())
       .subscribe();
-    return () => supabase.removeChannel(channel);
+
+    const onWindowFocus = () => fetchData();
+    window.addEventListener('focus', onWindowFocus);
+    return () => {
+      window.removeEventListener('focus', onWindowFocus);
+      supabase.removeChannel(channel);
+    };
   }, [fetchData, playDispatchSound]);
 
   const calculateETA = useCallback((driver, booking) => {

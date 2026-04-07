@@ -16,11 +16,11 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
   const syncMapData = useCallback(async () => {
     const { data: drv } = await supabase.from('drivers').select('*');
     
-    // 🟢 FIXED: Include 'Picked Up' so the route stays visible during rerouting
+    // Keep mission visible across acknowledge -> en route -> pickup phases.
     const { data: bkg } = await supabase
       .from('bookings')
       .select('*')
-      .in('status', ['Pending', 'Accepted', 'Assigned', 'Picked Up']); 
+      .in('status', ['Pending', 'Accepted', 'Assigned', 'En Route', 'Picked Up']); 
       
     const { data: hosp } = await supabase.from('hospitals').select('*');
     
@@ -66,7 +66,7 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
     // 2. Handle Active Missions (Including Rerouting)
     bookings.forEach(b => {
       let assigned = drivers.find(d => d.id === b.driver_id);
-      if (assigned && (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'Picked Up')) {
+      if (assigned && (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'En Route' || b.status === 'Picked Up')) {
         requests.push({ 
           id: b.id, 
           origin: { lat: assigned.current_lat, lng: assigned.current_lng }, 
