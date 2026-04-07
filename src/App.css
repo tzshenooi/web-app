@@ -427,105 +427,6 @@ body {
   color: #64748b;
 }
 
-.facility-page {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding: 24px;
-}
-
-.facility-shell {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.facility-topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.facility-topbar h1 {
-  margin: 0;
-  color: #0f172a;
-}
-
-.facility-topbar p {
-  margin: 4px 0 0 0;
-  color: #64748b;
-}
-
-.facility-logout-btn {
-  width: 130px;
-}
-
-.facility-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.facility-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
-}
-
-.facility-card h2 {
-  margin: 0 0 14px 0;
-  color: #0f172a;
-}
-
-.facility-muted {
-  color: #64748b;
-  margin: 0;
-}
-
-.facility-list {
-  display: grid;
-  gap: 10px;
-}
-
-.facility-mission-row {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.facility-mission-row p {
-  margin: 4px 0 0 0;
-  font-size: 0.88rem;
-  color: #64748b;
-}
-
-.facility-badges {
-  display: flex;
-  gap: 8px;
-}
-
-.facility-pill {
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 6px 10px;
-  border: 1px solid #dbeafe;
-  color: #1d4ed8;
-  background: #eff6ff;
-}
-
-.facility-pill.eta {
-  border-color: #dcfce7;
-  color: #15803d;
-  background: #f0fdf4;
-}
-
 @media (max-width: 980px) {
   .login-container {
     grid-template-columns: 1fr;
@@ -543,13 +444,6 @@ body {
 
   .auth-card {
     padding: 24px;
-  }
-  .facility-grid {
-    grid-template-columns: 1fr;
-  }
-  .facility-topbar {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 
@@ -614,3 +508,534 @@ body {
 
 .status-pending { background-color: #ffc107; color: #333; } /* Yellow */
 .status-accepted { background-color: #28a745; color: white; } /* Green */
+
+/* --- Facility Portal (Dashboard-aligned Theme) --- */
+.facility-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at top right, #263246 0%, #121a29 48%, #0b1220 100%);
+  padding: 18px;
+}
+
+.facility-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.facility-dashboard-layout {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.facility-side-nav {
+  width: 72px;
+  background: #1e2632;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0;
+}
+
+.facility-side-nav-top,
+.facility-side-nav-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.facility-nav-link {
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.facility-nav-link:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.facility-nav-link.active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.facility-main-pane {
+  flex: 1;
+  min-width: 0;
+}
+
+.facility-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: rgba(28, 34, 45, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.facility-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.facility-brand-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.facility-topbar h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.facility-topbar p {
+  margin: 3px 0 0 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.facility-system-pill {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.13);
+  color: #34d399;
+}
+
+.facility-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.facility-admin-label {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.facility-logout-btn {
+  width: 120px;
+  background: #3b82f6;
+  border-radius: 12px;
+}
+
+.facility-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.facility-stat-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.facility-stat-label {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.facility-stat-value {
+  color: #e2e8f0;
+  line-height: 1;
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.facility-stat-value.success {
+  color: #34d399;
+}
+
+.facility-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.facility-card {
+  background: linear-gradient(180deg, rgba(33, 43, 61, 0.96) 0%, rgba(29, 39, 56, 0.96) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(2, 6, 23, 0.35);
+  padding: 16px;
+}
+
+.facility-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding-bottom: 10px;
+  margin: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.facility-section-subtitle {
+  margin: 8px 0 14px;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.facility-panel-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.facility-card-form .auth-form {
+  gap: 12px;
+}
+
+.facility-card-form .auth-field label {
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.facility-card-form .auth-input {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+  height: 42px;
+}
+
+.facility-card-form .auth-input::placeholder {
+  color: #64748b;
+}
+
+.facility-card-form .auth-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.facility-card-form .auth-submit {
+  height: 42px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.facility-card-list {
+  min-height: 235px;
+}
+
+.facility-list {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.facility-mission-row {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.42);
+  padding: 10px 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.facility-mission-row:hover {
+  border-color: rgba(148, 163, 184, 0.4);
+  transform: translateY(-1px);
+}
+
+.facility-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.facility-row-emoji {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.facility-mission-row strong {
+  color: #f8fafc;
+  font-size: 0.93rem;
+  font-weight: 700;
+}
+
+.facility-mission-row p {
+  margin: 2px 0 0 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.facility-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.facility-pill {
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  background: rgba(51, 65, 85, 0.75);
+}
+
+.facility-pill.neutral {
+  color: #cbd5e1;
+}
+
+.facility-pill.assigned {
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.facility-pill.enroute {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.facility-pill.transport {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(109, 40, 217, 0.2);
+}
+
+.facility-pill.available {
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.facility-pill.full {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(127, 29, 29, 0.24);
+}
+
+.facility-pill.eta {
+  color: #22d3ee;
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(8, 145, 178, 0.2);
+}
+
+.facility-beds-inline {
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.facility-muted {
+  color: #94a3b8;
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  .facility-grid,
+  .facility-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .facility-dashboard-layout {
+    flex-direction: column;
+  }
+
+  .facility-side-nav {
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+    padding: 10px;
+    flex-direction: row;
+  }
+
+  .facility-side-nav-top,
+  .facility-side-nav-bottom {
+    flex-direction: row;
+    width: auto;
+  }
+
+  .facility-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .facility-topbar-left {
+    flex-wrap: wrap;
+  }
+}
+
+/* Facility portal: dashboard-structure bridge */
+.facility-shell-v2 {
+  min-height: 100vh;
+  background: radial-gradient(circle at top right, #263246 0%, #121a29 48%, #0b1220 100%);
+}
+
+/* Dashboard .ui-container uses pointer-events: none so clicks pass through to the map.
+   Facility portal has no map layer — force the shell and content to receive clicks. */
+.ui-container.facility-ui-v2 {
+  pointer-events: auto;
+}
+
+.facility-ui-v2 {
+  position: static;
+  min-height: 100vh;
+  pointer-events: auto;
+}
+
+.facility-ui-v2 .workspace-content,
+.facility-ui-v2 .facility-content-panel {
+  pointer-events: auto;
+}
+
+.facility-content-panel {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  padding: 14px;
+  overflow: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.facility-stats-compact {
+  margin-top: 0;
+}
+
+.facility-map-section .facility-map-facility-row {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.facility-map-section .facility-map-facility-row label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.facility-map-shell {
+  height: min(55vh, 520px);
+  min-height: 320px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.facility-toast {
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.facility-toast-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.facility-toast-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.facility-info-banner {
+  margin: 0 0 14px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.facility-card-form .auth-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .facility-card-form .auth-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.facility-facilities-search {
+  margin-bottom: 12px;
+}
+
+.facility-pill.limited {
+  color: #ea580c;
+  border-color: rgba(234, 88, 12, 0.45);
+  background: rgba(251, 146, 60, 0.15);
+}
+
+.facility-incoming-facility {
+  margin-bottom: 12px;
+}
