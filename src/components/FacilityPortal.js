@@ -31,15 +31,13 @@ const toKm = (lat1, lng1, lat2, lng2) => {
 
 const FacilityPortal = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState('register');
+  const [view, setView] = useState('availability');
   const [hospitals, setHospitals] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [selectedFacilityId, setSelectedFacilityId] = useState('');
   const [bedsInput, setBedsInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', beds: '0' });
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -186,36 +184,6 @@ const FacilityPortal = () => {
     showToast('success', 'Saved.');
   };
 
-  const registerFacility = async (e) => {
-    e.preventDefault();
-    const name = registerForm.name.trim();
-    const specialty = registerForm.specialty.trim();
-    const beds = Number(registerForm.beds);
-
-    if (!name) return showToast('error', 'Enter a facility name.');
-    if (!Number.isFinite(beds) || beds < 0) return showToast('error', 'Beds must be 0 or more.');
-    if (hospitals.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
-      return showToast('error', 'That name is already used.');
-    }
-
-    setRegistering(true);
-    const { data, error } = await supabase
-      .from('hospitals')
-      .insert({ name, specialty: specialty || 'General', beds })
-      .select('id')
-      .single();
-    setRegistering(false);
-
-    if (error) return showToast('error', error.message);
-    setRegisterForm({ name: '', specialty: '', beds: '0' });
-    await fetchAll();
-    if (data?.id) {
-      setSelectedFacilityId(String(data.id));
-      setBedsInput(String(beds));
-    }
-    showToast('success', 'Registered.');
-  };
-
   const logout = async () => {
     await supabase.auth.signOut();
     navigate('/');
@@ -241,9 +209,6 @@ const FacilityPortal = () => {
         <div className="workspace-content">
           <nav className="side-nav">
             <div className="nav-top-group">
-              <div className={`nav-link ${view === 'register' ? 'active' : ''}`} onClick={() => setView('register')} title="Register">
-                <SideIcon active={view === 'register'} path="M8 4v16M16 4v16M4 8h16M4 14h16M4 4h16v16H4z" />
-              </div>
               <div className={`nav-link ${view === 'availability' ? 'active' : ''}`} onClick={() => setView('availability')} title="Availability">
                 <SideIcon active={view === 'availability'} path="M12 6v12M7 11h10M5 5h14v14H5z" />
               </div>
@@ -284,28 +249,6 @@ const FacilityPortal = () => {
                 <strong className="facility-stat-value">{stats.incomingCount}</strong>
               </div>
             </div>
-
-            {view === 'register' && (
-              <section className="facility-card facility-card-form">
-                <h2>Register Facility</h2>
-                <p className="facility-section-subtitle">Name, specialty, and bed count</p>
-                <form onSubmit={registerFacility} className="auth-form">
-                  <div className="auth-field">
-                    <label>Name</label>
-                    <input className="auth-input" type="text" value={registerForm.name} onChange={(e) => setRegisterForm((p) => ({ ...p, name: e.target.value }))} required />
-                  </div>
-                  <div className="auth-field">
-                    <label>Specialty</label>
-                    <input className="auth-input" type="text" value={registerForm.specialty} onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))} placeholder="e.g. General" />
-                  </div>
-                  <div className="auth-field">
-                    <label>Available beds</label>
-                    <input className="auth-input" type="number" min="0" value={registerForm.beds} onChange={(e) => setRegisterForm((p) => ({ ...p, beds: e.target.value }))} required />
-                  </div>
-                  <button type="submit" className="auth-submit" disabled={registering}>{registering ? 'Saving...' : 'Add facility'}</button>
-                </form>
-              </section>
-            )}
 
             {view === 'availability' && (
               <section className="facility-card facility-card-form">

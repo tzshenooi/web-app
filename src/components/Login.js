@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../App.css'; 
 
@@ -70,6 +70,7 @@ const Login = () => {
               Facility
             </button>
           </div>
+
           <div className="auth-field">
             <label htmlFor="email">Email Address</label>
             <input
@@ -116,11 +117,12 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="auth-footer">
-          <p>
-            Need access? <a href="/" onClick={(e) => e.preventDefault()} className="auth-link">Contact administrator</a>
+        {isFacility && (
+          <p className="auth-facility-note">
+            New hospital?{' '}
+            <Link to="/register-facility" className="auth-link">Register</Link>
           </p>
-        </div>
+        )}
       </div>
     </div>
   );
