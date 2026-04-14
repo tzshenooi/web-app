@@ -54,29 +54,88 @@ const FacilityPortal = () => {
   const [bedsInput, setBedsInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [booting, setBooting] = useState(true);
+  const initialPassRef = useRef(true);
   const toastTimerRef = useRef(null);
 
   const fetchAll = useCallback(async () => {
+    await supabase.auth.refreshSession();
     const { data: authData } = await supabase.auth.getUser();
-    if (!authData?.user) {
-      navigate('/');
+    const user = authData?.user;
+    if (!user) {
+      if (initialPassRef.current) setBooting(false);
+      initialPassRef.current = false;
+      navigate('/', { replace: true });
       return;
     }
 
-    const { data: hosp } = await supabase.from('hospitals').select('*').order('name', { ascending: true });
+    const access = user.app_metadata?.facility_access;
+    const facilityHospitalId = user.app_metadata?.facility_hospital_id;
+
+    if (access === 'approved' && facilityHospitalId) {
+      // allowed
+    } else if (access === 'pending') {
+      if (initialPassRef.current) setBooting(false);
+      initialPassRef.current = false;
+      await supabase.auth.signOut();
+      navigate('/', { replace: true, state: { loginNotice: 'facility_pending' } });
+      return;
+    } else {
+      const { data: pend } = await supabase
+        .from('facility_registrations')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (pend) {
+        if (initialPassRef.current) setBooting(false);
+        initialPassRef.current = false;
+        await supabase.auth.signOut();
+        navigate('/', { replace: true, state: { loginNotice: 'facility_pending' } });
+        return;
+      }
+      if (initialPassRef.current) setBooting(false);
+      initialPassRef.current = false;
+      await supabase.auth.signOut();
+      navigate('/', { replace: true, state: { loginNotice: 'facility_unauthorized' } });
+      return;
+    }
+
+    const { data: hospRow, error: hospErr } = await supabase
+      .from('hospitals')
+      .select('*')
+      .eq('id', facilityHospitalId)
+      .maybeSingle();
+
+    if (hospErr) {
+      console.error(hospErr);
+      if (initialPassRef.current) {
+        setBooting(false);
+        initialPassRef.current = false;
+      }
+      return;
+    }
+
+    const hospList = hospRow ? [hospRow] : [];
+    setHospitals(hospList);
+    if (hospRow) {
+      setSelectedFacilityId(String(hospRow.id));
+      setBedsInput(String(hospRow.beds ?? 0));
+    } else {
+      setHospitals([]);
+      setSelectedFacilityId('');
+    }
+
     const { data: drv } = await supabase.from('drivers').select('id,name,current_lat,current_lng');
     const { data: bkg } = await supabase.from('bookings').select('*').in('status', ['Assigned', 'Accepted', 'En Route', 'Picked Up']);
 
-    if (hosp) {
-      setHospitals(hosp);
-      if (!selectedFacilityId && hosp.length > 0) {
-        setSelectedFacilityId(hosp[0].id);
-        setBedsInput(String(hosp[0].beds ?? 0));
-      }
-    }
     if (drv) setDrivers(drv);
     if (bkg) setBookings(bkg);
-  }, [navigate, selectedFacilityId]);
+
+    if (initialPassRef.current) {
+      setBooting(false);
+      initialPassRef.current = false;
+    }
+  }, [navigate]);
 
   useEffect(() => {
     fetchAll();
@@ -194,6 +253,14 @@ const FacilityPortal = () => {
     await supabase.auth.signOut();
     navigate('/');
   };
+
+  if (booting) {
+    return (
+      <div className="loading-screen">
+        <h2>Loading…</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell facility-shell-v2">

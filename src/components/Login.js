@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../App.css'; 
 
@@ -9,16 +9,51 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [portalType, setPortalType] = useState('dispatcher');
   const [loading, setLoading] = useState(false);
+  /** 'pending' | 'unauthorized' | null */
+  const [facilityNotice, setFacilityNotice] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const isFacility = portalType === 'facility';
+
+  useEffect(() => {
+    const n = location.state?.loginNotice;
+    if (n === 'facility_pending' || n === 'facility_unauthorized') {
+      setPortalType('facility');
+      setFacilityNotice(n === 'facility_pending' ? 'pending' : 'unauthorized');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate(portalType === 'facility' ? '/facility' : '/dashboard');
+      if (portalType === 'facility') {
+        const access = data.user?.app_metadata?.facility_access;
+        if (access === 'approved') {
+          navigate('/facility');
+        } else if (access === 'pending') {
+          await supabase.auth.signOut();
+          setFacilityNotice('pending');
+        } else {
+          const { data: pend } = await supabase
+            .from('facility_registrations')
+            .select('id')
+            .eq('auth_user_id', data.user.id)
+            .maybeSingle();
+          if (pend) {
+            await supabase.auth.signOut();
+            setFacilityNotice('pending');
+          } else {
+            await supabase.auth.signOut();
+            setFacilityNotice('unauthorized');
+          }
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       alert(error.message);
     } finally {
@@ -53,12 +88,26 @@ const Login = () => {
           <p>{isFacility ? 'Manage beds and incoming ETA' : 'Sign in to your account'}</p>
         </div>
 
+        {facilityNotice === 'pending' && (
+          <div className="auth-login-notice" role="status">
+            Your facility request is still being reviewed by a dispatcher.
+          </div>
+        )}
+        {facilityNotice === 'unauthorized' && (
+          <div className="auth-login-notice auth-login-notice-muted" role="status">
+            This account is not linked to an approved facility. Use dispatcher login if you are staff, or register your facility and wait for approval.
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="auth-form">
           <div className="auth-portal-switch">
             <button
               type="button"
               className={`auth-portal-btn ${portalType === 'dispatcher' ? 'active' : ''}`}
-              onClick={() => setPortalType('dispatcher')}
+              onClick={() => {
+                setPortalType('dispatcher');
+                setFacilityNotice(null);
+              }}
             >
               Dispatcher
             </button>
