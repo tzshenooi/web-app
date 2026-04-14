@@ -4,6 +4,21 @@ import { supabase } from '../supabaseClient';
 import './Dashboard1.css';
 import '../App.css';
 import FacilityMapView from './FacilityMapView';
+import AddDriver from './AddDriver';
+
+const AddDriverNavIcon = ({ active }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden>
+    <path
+      d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+      stroke={active ? '#60A5FA' : '#F8FAFC'}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke={active ? '#60A5FA' : '#F8FAFC'} strokeWidth="1.8" />
+    <path d="M20 8v6M23 11h-6" stroke={active ? '#60A5FA' : '#F8FAFC'} strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
 
 const SideIcon = ({ path, active = false, viewBox = '0 0 24 24' }) => (
   <svg width="18" height="18" viewBox={viewBox} fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden="true">
@@ -121,15 +136,6 @@ const FacilityPortal = () => {
       });
   }, [bookings, drivers, selectedFacility]);
 
-  const stats = useMemo(
-    () => ({
-      totalFacilities: hospitals.length,
-      availableFacilities: hospitals.filter((h) => Number(h.beds || 0) > 0).length,
-      incomingCount: inboundMissions.length,
-    }),
-    [hospitals, inboundMissions.length]
-  );
-
   const facilityMapData = useMemo(() => {
     if (!selectedFacility) return { facilityPos: null, routes: [] };
     const lat = selectedFacility.latitude ?? selectedFacility.lat;
@@ -218,8 +224,8 @@ const FacilityPortal = () => {
               <div className={`nav-link ${view === 'map' ? 'active' : ''}`} onClick={() => setView('map')} title="Map">
                 <SideIcon active={view === 'map'} path="M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10z" />
               </div>
-              <div className={`nav-link ${view === 'facilities' ? 'active' : ''}`} onClick={() => setView('facilities')} title="Facilities">
-                <SideIcon active={view === 'facilities'} path="M4 6h16M4 12h16M4 18h16" />
+              <div className={`nav-link ${view === 'addDriver' ? 'active' : ''}`} onClick={() => setView('addDriver')} title="Add driver">
+                <AddDriverNavIcon active={view === 'addDriver'} />
               </div>
             </div>
             <div className="nav-bottom-group">
@@ -237,18 +243,23 @@ const FacilityPortal = () => {
             )}
             <div className="facility-stats facility-stats-compact">
               <div className="facility-stat-card">
-                <span className="facility-stat-label">Facilities</span>
-                <strong className="facility-stat-value">{stats.totalFacilities}</strong>
-              </div>
-              <div className="facility-stat-card">
-                <span className="facility-stat-label">Open</span>
-                <strong className="facility-stat-value success">{stats.availableFacilities}</strong>
-              </div>
-              <div className="facility-stat-card">
                 <span className="facility-stat-label">Incoming</span>
-                <strong className="facility-stat-value">{stats.incomingCount}</strong>
+                <strong className="facility-stat-value">{inboundMissions.length}</strong>
               </div>
             </div>
+
+            {view === 'addDriver' && (
+              <section className="facility-card facility-card-form">
+                <h2>Add driver</h2>
+                <p className="facility-section-subtitle">Register a new ambulance unit for the mobile app</p>
+                <AddDriver
+                  onComplete={() => {
+                    fetchAll();
+                    showToast('success', 'Driver registered. They can sign in with the email and password you set.');
+                  }}
+                />
+              </section>
+            )}
 
             {view === 'availability' && (
               <section className="facility-card facility-card-form">
@@ -339,35 +350,6 @@ const FacilityPortal = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {view === 'facilities' && (
-              <section className="facility-card facility-card-list">
-                <h2>All facilities</h2>
-                <p className="facility-section-subtitle">{hospitals.length} in the system</p>
-                {hospitals.length === 0 ? (
-                  <p className="facility-muted">No facilities yet.</p>
-                ) : (
-                  <div className="facility-list">
-                    {hospitals.map((h) => {
-                      const n = Number(h.beds || 0);
-                      const open = n > 0;
-                      return (
-                        <div key={h.id} className="facility-mission-row">
-                          <div>
-                            <strong>{h.name}</strong>
-                            <p>{h.specialty || 'General'}</p>
-                          </div>
-                          <div className="facility-badges">
-                            <span className={`facility-pill ${open ? 'available' : 'full'}`}>{open ? 'Open' : 'Full'}</span>
-                            <span className="facility-beds-inline">{n} beds</span>
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
               </section>

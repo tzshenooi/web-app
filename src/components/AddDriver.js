@@ -107,7 +107,7 @@
 // export default AddDriver;
 
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabaseAdmin } from '../supabaseClient';
 
 const AddDriver = ({ onComplete }) => {
   const [email, setEmail] = useState('');
@@ -118,54 +118,58 @@ const AddDriver = ({ onComplete }) => {
   const handleRegisterDriver = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
 
-    // STEP 1: Create the User in Supabase Auth (for Flutter Login)
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: trimmedEmail,
+        password,
+        email_confirm: true,
+      });
 
-    if (authError) {
-  if (authError.message.includes("already registered")) {
-    // 🟢 OPTIONAL: Logic to attempt Step 2 again if they already exist in Auth
-    alert("This email is already in Auth. Please delete it from the Supabase Auth tab first to reset.");
-  } else {
-    alert("Registration Failed: " + authError.message);
-  }
-  setLoading(false);
-  return;
-}
+      if (authError) {
+        const msg = authError.message || '';
+        alert(
+          /already|registered|exists/i.test(msg)
+            ? 'This email is already registered.'
+            : 'Registration failed: ' + msg
+        );
+        return;
+      }
 
-    // STEP 2: Link the Auth User to your 'drivers' data table
-    if (data.user) {
-      const { error: dbError } = await supabase
-        .from('drivers')
-        .insert([
-          { 
-            id: data.user.id, // Links Auth UID to the Driver Record
-            name: name, 
-            email: email, 
-            status: 'Offline', 
-            current_lat: 5.3544, 
-            current_lng: 100.3012 
-          }
-        ]);
+      const user = authData?.user;
+      if (!user?.id) {
+        alert('Registration failed: no user returned.');
+        return;
+      }
+
+      const { error: dbError } = await supabaseAdmin.from('drivers').insert({
+        id: user.id,
+        name: trimmedName,
+        email: trimmedEmail,
+        status: 'Offline',
+        current_lat: 5.3544,
+        current_lng: 100.3012,
+      });
 
       if (dbError) {
-        // 🟢 ADD THIS LINE: It will reveal the exact cause in your Browser Console (F12)
-        console.error("Technical Database Error:", dbError);
-        
-        alert("Auth created, but DB record failed: " + dbError.message);
-      } else {
-        alert("✅ Unit Registered! Use these credentials in the Flutter app.");
-        if(onComplete) onComplete();
-        // Clear fields
-        setEmail('');
-        setPassword('');
-        setName('');
+        console.error('Driver DB insert:', dbError);
+        alert('Auth user was created, but the driver record failed: ' + dbError.message);
+        return;
       }
+
+      setEmail('');
+      setPassword('');
+      setName('');
+      if (onComplete) {
+        onComplete();
+      } else {
+        alert('Driver registered. They can sign in on the mobile app with this email and password.');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

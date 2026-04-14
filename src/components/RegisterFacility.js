@@ -6,7 +6,7 @@ import '../App.css';
 const RegisterFacility = () => {
   const [hospitals, setHospitals] = useState([]);
   const [registering, setRegistering] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', beds: '0' });
+  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '' });
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -28,10 +28,8 @@ const RegisterFacility = () => {
     e.preventDefault();
     const name = registerForm.name.trim();
     const specialty = registerForm.specialty.trim();
-    const beds = Number(registerForm.beds);
 
     if (!name) return showToast('error', 'Enter a facility name.');
-    if (!Number.isFinite(beds) || beds < 0) return showToast('error', 'Beds must be 0 or more.');
     if (hospitals.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
       return showToast('error', 'That name is already used.');
     }
@@ -39,11 +37,11 @@ const RegisterFacility = () => {
     setRegistering(true);
     const { error } = await supabase
       .from('hospitals')
-      .insert({ name, specialty: specialty || 'General', beds });
+      .insert({ name, specialty: specialty || 'General', beds: 0 });
     setRegistering(false);
 
     if (error) return showToast('error', error.message);
-    setRegisterForm({ name: '', specialty: '', beds: '0' });
+    setRegisterForm({ name: '', specialty: '' });
     setHospitals((prev) => [...prev, { name }]);
     showToast('success', 'Registered. You can sign in to the Facility Portal.');
   };
@@ -53,7 +51,7 @@ const RegisterFacility = () => {
       <div className="auth-card">
         <div className="auth-header">
           <h1>Register facility</h1>
-          <p>Name, specialty, and bed count</p>
+          <p>Name and specialty</p>
         </div>
 
         {toast && (
@@ -83,18 +81,6 @@ const RegisterFacility = () => {
               value={registerForm.specialty}
               onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))}
               placeholder="e.g. General"
-            />
-          </div>
-          <div className="auth-field">
-            <label htmlFor="reg-beds">Available beds</label>
-            <input
-              id="reg-beds"
-              className="auth-input"
-              type="number"
-              min="0"
-              value={registerForm.beds}
-              onChange={(e) => setRegisterForm((p) => ({ ...p, beds: e.target.value }))}
-              required
             />
           </div>
           <button type="submit" className="auth-submit" disabled={registering}>
