@@ -208,14 +208,24 @@ const FacilityRegistrationQueue = ({ onStatusChange, refreshTrigger = 0 }) => {
 
   const approve = async (row) => {
     try {
+      const la = row.latitude != null && row.latitude !== '' ? Number(row.latitude) : NaN;
+      const lo = row.longitude != null && row.longitude !== '' ? Number(row.longitude) : NaN;
+      const useRegCoords =
+        Number.isFinite(la) &&
+        Number.isFinite(lo) &&
+        la >= -90 &&
+        la <= 90 &&
+        lo >= -180 &&
+        lo <= 180;
+
       const { data: inserted, error: insErr } = await supabaseAdmin
         .from('hospitals')
         .insert({
           name: row.name,
           specialty: row.specialty || 'General',
           beds: 0,
-          latitude: DEFAULT_HOSPITAL_LAT,
-          longitude: DEFAULT_HOSPITAL_LNG,
+          latitude: useRegCoords ? la : DEFAULT_HOSPITAL_LAT,
+          longitude: useRegCoords ? lo : DEFAULT_HOSPITAL_LNG,
         })
         .select('id')
         .single();
@@ -285,6 +295,14 @@ const FacilityRegistrationQueue = ({ onStatusChange, refreshTrigger = 0 }) => {
                   {row.contact_email}
                 </span>
               )}
+              {row.latitude != null &&
+                row.longitude != null &&
+                row.latitude !== '' &&
+                row.longitude !== '' && (
+                  <span className="unit-sub-text" style={{ marginTop: '4px', fontSize: '0.8rem' }}>
+                    Map: {Number(row.latitude).toFixed(5)}, {Number(row.longitude).toFixed(5)}
+                  </span>
+                )}
               <span className="unit-sub-text" style={{ fontSize: '0.8rem', marginTop: '6px' }}>
                 Requested {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
               </span>

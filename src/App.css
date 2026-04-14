@@ -942,6 +942,28 @@ body {
   }
 }
 
+/* Facility portal: full-height white HUD (same column height as sidebar); body scrolls inside */
+.facility-portal-map-shell .workspace-content {
+  align-items: stretch;
+}
+.facility-portal-map-shell .hud-panel {
+  flex: 0 0 310px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.facility-portal-map-shell .hud-scroll-hide {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.facility-portal-map-shell .hud-header {
+  flex-shrink: 0;
+}
+
 /* Facility portal: dashboard-structure bridge */
 .facility-shell-v2 {
   min-height: 100vh;

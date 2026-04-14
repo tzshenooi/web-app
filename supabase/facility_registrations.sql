@@ -7,6 +7,8 @@ create table if not exists public.facility_registrations (
   specialty text,
   contact_email text,
   auth_user_id uuid,
+  latitude double precision,
+  longitude double precision,
   created_at timestamptz not null default now()
 );
 

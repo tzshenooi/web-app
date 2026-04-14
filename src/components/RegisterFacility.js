@@ -8,7 +8,7 @@ const RegisterFacility = () => {
   const [hospitals, setHospitals] = useState([]);
   const [registering, setRegistering] = useState(false);
   const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', latitude: '', longitude: '' });
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -48,6 +48,26 @@ const RegisterFacility = () => {
       return showToast('error', 'That name is already registered.');
     }
 
+    const latStr = String(registerForm.latitude ?? '').trim();
+    const lngStr = String(registerForm.longitude ?? '').trim();
+    if (Boolean(latStr) !== Boolean(lngStr)) {
+      return showToast('error', 'Enter both latitude and longitude, or leave both blank.');
+    }
+    let latitude = null;
+    let longitude = null;
+    if (latStr && lngStr) {
+      const la = Number(latStr);
+      const lo = Number(lngStr);
+      if (!Number.isFinite(la) || !Number.isFinite(lo)) {
+        return showToast('error', 'Latitude and longitude must be valid numbers.');
+      }
+      if (la < -90 || la > 90 || lo < -180 || lo > 180) {
+        return showToast('error', 'Coordinates are out of range.');
+      }
+      latitude = la;
+      longitude = lo;
+    }
+
     setRegistering(true);
     let createdUserId = null;
     try {
@@ -76,12 +96,18 @@ const RegisterFacility = () => {
       }
       createdUserId = user.id;
 
-      const { error } = await supabase.from('facility_registrations').insert({
+      const insertPayload = {
         name,
         specialty: specialty || 'General',
         contact_email: email,
         auth_user_id: user.id,
-      });
+      };
+      if (latitude != null && longitude != null) {
+        insertPayload.latitude = latitude;
+        insertPayload.longitude = longitude;
+      }
+
+      const { error } = await supabase.from('facility_registrations').insert(insertPayload);
 
       if (error) {
         if (error.code === '23505') {
@@ -93,7 +119,7 @@ const RegisterFacility = () => {
       }
 
       setAccount({ email: '', password: '', confirmPassword: '' });
-      setRegisterForm({ name: '', specialty: '' });
+      setRegisterForm({ name: '', specialty: '', latitude: '', longitude: '' });
       setStep(1);
       showToast(
         'success',
@@ -117,7 +143,7 @@ const RegisterFacility = () => {
           {step === 1 ? (
             <p>Sign-in email and password for the Facility Portal after approval.</p>
           ) : (
-            <p>Name and specialty. Your request must be approved by a dispatcher.</p>
+            <p>Name, specialty, and optional map coordinates. Your request must be approved by a dispatcher.</p>
           )}
         </div>
 
@@ -197,6 +223,35 @@ const RegisterFacility = () => {
                 placeholder="e.g. General"
               />
             </div>
+            <div className="auth-field">
+              <label htmlFor="reg-lat">Latitude (optional)</label>
+              <input
+                id="reg-lat"
+                className="auth-input"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={registerForm.latitude}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, latitude: e.target.value }))}
+                placeholder="e.g. 5.4164"
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-lng">Longitude (optional)</label>
+              <input
+                id="reg-lng"
+                className="auth-input"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={registerForm.longitude}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, longitude: e.target.value }))}
+                placeholder="e.g. 100.3327"
+              />
+            </div>
+            <p className="auth-facility-note" style={{ marginTop: '-4px', marginBottom: '8px' }}>
+              Optional: pin your building on the map. Leave blank to set later in Facility Portal or by the dispatcher.
+            </p>
             <button type="submit" className="auth-submit" disabled={registering}>
               {registering ? 'Submitting...' : 'Submit request'}
             </button>
