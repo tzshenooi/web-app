@@ -3,9 +3,24 @@ import { GoogleMap, Marker, DirectionsRenderer, TrafficLayer, InfoWindow } from 
 import { supabase } from '../supabaseClient';
 
 const containerStyle = { width: '100%', height: '100%' };
-const initialCenter = { lat: 5.5135, lng: 100.5400 }; 
+const initialCenter = { lat: 5.5135, lng: 100.5400 };
 
-const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic }) => {
+/** Patient scene vs hospital: after pickup, route + marker should use the assigned hospital. */
+function getBookingDestination(b, hospitalsList) {
+  if (b.status === 'Picked Up' && b.destination_facility != null) {
+    const h = hospitalsList.find((x) => String(x.id) === String(b.destination_facility));
+    if (h) {
+      const lat = h.latitude ?? h.lat;
+      const lng = h.longitude ?? h.lng;
+      if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+        return { lat: Number(lat), lng: Number(lng) };
+      }
+    }
+  }
+  return { lat: Number(b.latitude), lng: Number(b.longitude) };
+}
+
+const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic, facilityHospitalId = null }) => {
   const [map, setMap] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -23,11 +38,26 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
       .in('status', ['Pending', 'Accepted', 'Assigned', 'En Route', 'Picked Up']); 
       
     const { data: hosp } = await supabase.from('hospitals').select('*');
-    
-    if (drv) setDrivers(drv);
-    if (bkg) setBookings(bkg);
-    if (hosp) setHospitals(hosp);
-  }, []);
+
+    let nextDrv = drv || [];
+    let nextBkg = bkg || [];
+    let nextHosp = hosp || [];
+
+    if (facilityHospitalId) {
+      nextBkg = nextBkg.filter((b) => String(b.destination_facility) === String(facilityHospitalId));
+      nextHosp = nextHosp.filter((h) => String(h.id) === String(facilityHospitalId));
+      const driverIdsFromBookings = new Set(nextBkg.map((b) => b.driver_id).filter(Boolean));
+      nextDrv = (drv || []).filter(
+        (d) =>
+          driverIdsFromBookings.has(d.id) ||
+          (d.base_hospital_id != null && String(d.base_hospital_id) === String(facilityHospitalId))
+      );
+    }
+
+    setDrivers(nextDrv);
+    setBookings(nextBkg);
+    setHospitals(nextHosp);
+  }, [facilityHospitalId]);
 
   useEffect(() => {
     syncMapData();
@@ -63,14 +93,16 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
       });
     }
 
-    // 2. Handle Active Missions (Including Rerouting)
-    bookings.forEach(b => {
-      let assigned = drivers.find(d => d.id === b.driver_id);
+    // 2. Active missions: destination is patient location until Picked Up, then hospital from destination_facility
+    bookings.forEach((b) => {
+      const assigned = drivers.find((d) => d.id === b.driver_id);
       if (assigned && (b.status === 'Accepted' || b.status === 'Assigned' || b.status === 'En Route' || b.status === 'Picked Up')) {
-        requests.push({ 
-          id: b.id, 
-          origin: { lat: assigned.current_lat, lng: assigned.current_lng }, 
-          destination: { lat: b.latitude, lng: b.longitude } // 🚑 b.latitude updates to Hospital Lat automatically when status is Picked Up
+        const dest = getBookingDestination(b, hospitals);
+        if (!Number.isFinite(dest.lat) || !Number.isFinite(dest.lng)) return;
+        requests.push({
+          id: b.id,
+          origin: { lat: assigned.current_lat, lng: assigned.current_lng },
+          destination: dest,
         });
       }
     });
@@ -86,7 +118,7 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
     };
 
     fetchRoutes();
-  }, [previewLocation, bookings, drivers]);
+  }, [previewLocation, bookings, drivers, hospitals]);
 
   return (
     <GoogleMap 
@@ -110,24 +142,43 @@ const MapComponent = ({ previewLocation, mapFocus, showHospitals, showTraffic })
         />
       ))}
 
-      {drivers.map(d => (
-        <Marker 
-          key={`d-${d.id}`} 
-          position={{ lat: d.current_lat, lng: d.current_lng }} 
-          icon={{ url: 'https://img.icons8.com/emoji/48/ambulance-emoji.png', scaledSize: new window.google.maps.Size(40, 40) }} 
-        />
-      ))}
+      {drivers
+        .filter(
+          (d) =>
+            d.current_lat != null &&
+            d.current_lng != null &&
+            Number.isFinite(Number(d.current_lat)) &&
+            Number.isFinite(Number(d.current_lng))
+        )
+        .map((d) => (
+          <Marker
+            key={`d-${d.id}`}
+            position={{ lat: Number(d.current_lat), lng: Number(d.current_lng) }}
+            icon={{
+              url: 'https://img.icons8.com/emoji/48/ambulance-emoji.png',
+              scaledSize: new window.google.maps.Size(40, 40),
+            }}
+          />
+        ))}
 
-      {bookings.map(b => (
-        <Marker 
-          key={`b-${b.id}`} 
-          position={{ lat: b.latitude, lng: b.longitude }} 
-          icon={{ 
-            url: b.status === 'Picked Up' ? 'https://img.icons8.com/color/48/hospital-sign.png' : 'https://img.icons8.com/color/96/sos.png', 
-            scaledSize: b.status === 'Picked Up' ? new window.google.maps.Size(40, 40) : new window.google.maps.Size(55, 55) 
-          }} 
-        />
-      ))}
+      {bookings.map((b) => {
+        const dest = getBookingDestination(b, hospitals);
+        if (!Number.isFinite(dest.lat) || !Number.isFinite(dest.lng)) return null;
+        return (
+          <Marker
+            key={`b-${b.id}`}
+            position={dest}
+            icon={{
+              url:
+                b.status === 'Picked Up'
+                  ? 'https://img.icons8.com/color/48/hospital-sign.png'
+                  : 'https://img.icons8.com/color/96/sos.png',
+              scaledSize:
+                b.status === 'Picked Up' ? new window.google.maps.Size(40, 40) : new window.google.maps.Size(55, 55),
+            }}
+          />
+        );
+      })}
 
       {showHospitals && hospitals.map(h => (
         <Marker 

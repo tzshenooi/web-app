@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { supabase, supabaseAdmin } from '../supabaseClient';
 import '../App.css';
 
 const RegisterFacility = () => {
+  const [step, setStep] = useState(1);
   const [hospitals, setHospitals] = useState([]);
   const [registering, setRegistering] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', beds: '0' });
+  const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', latitude: '', longitude: '' });
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -24,28 +26,113 @@ const RegisterFacility = () => {
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   };
 
+  const goToStep2 = (e) => {
+    e.preventDefault();
+    const email = account.email.trim();
+    const { password, confirmPassword } = account;
+    if (!email) return showToast('error', 'Enter your email.');
+    if (password.length < 6) return showToast('error', 'Password must be at least 6 characters.');
+    if (password !== confirmPassword) return showToast('error', 'Passwords do not match.');
+    setStep(2);
+  };
+
   const registerFacility = async (e) => {
     e.preventDefault();
     const name = registerForm.name.trim();
     const specialty = registerForm.specialty.trim();
-    const beds = Number(registerForm.beds);
+    const email = account.email.trim();
+    const { password } = account;
 
     if (!name) return showToast('error', 'Enter a facility name.');
-    if (!Number.isFinite(beds) || beds < 0) return showToast('error', 'Beds must be 0 or more.');
     if (hospitals.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
-      return showToast('error', 'That name is already used.');
+      return showToast('error', 'That name is already registered.');
+    }
+
+    const latStr = String(registerForm.latitude ?? '').trim();
+    const lngStr = String(registerForm.longitude ?? '').trim();
+    if (Boolean(latStr) !== Boolean(lngStr)) {
+      return showToast('error', 'Enter both latitude and longitude, or leave both blank.');
+    }
+    let latitude = null;
+    let longitude = null;
+    if (latStr && lngStr) {
+      const la = Number(latStr);
+      const lo = Number(lngStr);
+      if (!Number.isFinite(la) || !Number.isFinite(lo)) {
+        return showToast('error', 'Latitude and longitude must be valid numbers.');
+      }
+      if (la < -90 || la > 90 || lo < -180 || lo > 180) {
+        return showToast('error', 'Coordinates are out of range.');
+      }
+      latitude = la;
+      longitude = lo;
     }
 
     setRegistering(true);
-    const { error } = await supabase
-      .from('hospitals')
-      .insert({ name, specialty: specialty || 'General', beds });
-    setRegistering(false);
+    let createdUserId = null;
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        app_metadata: { facility_access: 'pending' },
+      });
 
-    if (error) return showToast('error', error.message);
-    setRegisterForm({ name: '', specialty: '', beds: '0' });
-    setHospitals((prev) => [...prev, { name }]);
-    showToast('success', 'Registered. You can sign in to the Facility Portal.');
+      if (authError) {
+        const msg = authError.message || '';
+        showToast(
+          'error',
+          /already|registered|exists/i.test(msg)
+            ? 'This email is already registered.'
+            : msg
+        );
+        return;
+      }
+
+      const user = authData?.user;
+      if (!user?.id) {
+        showToast('error', 'Could not create account.');
+        return;
+      }
+      createdUserId = user.id;
+
+      const insertPayload = {
+        name,
+        specialty: specialty || 'General',
+        contact_email: email,
+        auth_user_id: user.id,
+      };
+      if (latitude != null && longitude != null) {
+        insertPayload.latitude = latitude;
+        insertPayload.longitude = longitude;
+      }
+
+      const { error } = await supabase.from('facility_registrations').insert(insertPayload);
+
+      if (error) {
+        if (error.code === '23505') {
+          await supabaseAdmin.auth.admin.deleteUser(user.id);
+          return showToast('error', 'A request with that name is already pending.');
+        }
+        await supabaseAdmin.auth.admin.deleteUser(user.id);
+        return showToast('error', error.message);
+      }
+
+      setAccount({ email: '', password: '', confirmPassword: '' });
+      setRegisterForm({ name: '', specialty: '', latitude: '', longitude: '' });
+      setStep(1);
+      showToast(
+        'success',
+        'Request submitted. A dispatcher will review it before the facility appears in the system.'
+      );
+    } catch (err) {
+      showToast('error', err.message || String(err));
+      if (createdUserId) {
+        await supabaseAdmin.auth.admin.deleteUser(createdUserId).catch(() => {});
+      }
+    } finally {
+      setRegistering(false);
+    }
   };
 
   return (
@@ -53,7 +140,11 @@ const RegisterFacility = () => {
       <div className="auth-card">
         <div className="auth-header">
           <h1>Register facility</h1>
-          <p>Name, specialty, and bed count</p>
+          {step === 1 ? (
+            <p>Sign-in email and password for the Facility Portal after approval.</p>
+          ) : (
+            <p>Name, specialty, and optional map coordinates. Your request must be approved by a dispatcher.</p>
+          )}
         </div>
 
         {toast && (
@@ -62,45 +153,121 @@ const RegisterFacility = () => {
           </div>
         )}
 
-        <form onSubmit={registerFacility} className="auth-form">
-          <div className="auth-field">
-            <label htmlFor="reg-name">Name</label>
-            <input
-              id="reg-name"
-              className="auth-input"
-              type="text"
-              value={registerForm.name}
-              onChange={(e) => setRegisterForm((p) => ({ ...p, name: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="auth-field">
-            <label htmlFor="reg-specialty">Specialty</label>
-            <input
-              id="reg-specialty"
-              className="auth-input"
-              type="text"
-              value={registerForm.specialty}
-              onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))}
-              placeholder="e.g. General"
-            />
-          </div>
-          <div className="auth-field">
-            <label htmlFor="reg-beds">Available beds</label>
-            <input
-              id="reg-beds"
-              className="auth-input"
-              type="number"
-              min="0"
-              value={registerForm.beds}
-              onChange={(e) => setRegisterForm((p) => ({ ...p, beds: e.target.value }))}
-              required
-            />
-          </div>
-          <button type="submit" className="auth-submit" disabled={registering}>
-            {registering ? 'Saving...' : 'Add facility'}
-          </button>
-        </form>
+        {step === 1 && (
+          <form onSubmit={goToStep2} className="auth-form">
+            <div className="auth-field">
+              <label htmlFor="reg-email">Email</label>
+              <input
+                id="reg-email"
+                className="auth-input"
+                type="email"
+                autoComplete="email"
+                value={account.email}
+                onChange={(e) => setAccount((p) => ({ ...p, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-password">Password</label>
+              <input
+                id="reg-password"
+                className="auth-input"
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                value={account.password}
+                onChange={(e) => setAccount((p) => ({ ...p, password: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-confirm">Confirm password</label>
+              <input
+                id="reg-confirm"
+                className="auth-input"
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                value={account.confirmPassword}
+                onChange={(e) => setAccount((p) => ({ ...p, confirmPassword: e.target.value }))}
+                required
+              />
+            </div>
+            <button type="submit" className="auth-submit">
+              Continue
+            </button>
+          </form>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={registerFacility} className="auth-form">
+            <div className="auth-field">
+              <label htmlFor="reg-name">Facility name</label>
+              <input
+                id="reg-name"
+                className="auth-input"
+                type="text"
+                value={registerForm.name}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, name: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-specialty">Specialty</label>
+              <input
+                id="reg-specialty"
+                className="auth-input"
+                type="text"
+                value={registerForm.specialty}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))}
+                placeholder="e.g. General"
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-lat">Latitude (optional)</label>
+              <input
+                id="reg-lat"
+                className="auth-input"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={registerForm.latitude}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, latitude: e.target.value }))}
+                placeholder="e.g. 5.4164"
+              />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-lng">Longitude (optional)</label>
+              <input
+                id="reg-lng"
+                className="auth-input"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={registerForm.longitude}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, longitude: e.target.value }))}
+                placeholder="e.g. 100.3327"
+              />
+            </div>
+            <p className="auth-facility-note" style={{ marginTop: '-4px', marginBottom: '8px' }}>
+              Optional: pin your building on the map. Leave blank to set later in Facility Portal or by the dispatcher.
+            </p>
+            <button type="submit" className="auth-submit" disabled={registering}>
+              {registering ? 'Submitting...' : 'Submit request'}
+            </button>
+            <p style={{ textAlign: 'center', margin: '12px 0 0' }}>
+              <button
+                type="button"
+                className="auth-link"
+                style={{ background: 'none', border: 'none', cursor: registering ? 'wait' : 'pointer', font: 'inherit' }}
+                disabled={registering}
+                onClick={() => setStep(1)}
+              >
+                Back to account details
+              </button>
+            </p>
+          </form>
+        )}
 
         <div className="auth-footer">
           <p>

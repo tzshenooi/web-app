@@ -1,171 +1,94 @@
-// import React, { useState } from 'react';
-// import { supabase } from '../supabaseClient';
-
-// const AddDriver = () => {
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [name, setName] = useState('');
-//   const [loading, setLoading] = useState(false);
-
-//   const handleRegisterDriver = async (e) => {
-//     e.preventDefault();
-//     setLoading(true);
-
-//     // STEP 1: Create the User in Supabase Auth
-//     // This is what allows them to actually log in with email/password
-//     const { data, error: authError } = await supabase.auth.signUp({
-//       email: email,
-//       password: password,
-//     });
-
-//     if (authError) {
-//       alert("Registration Failed: " + authError.message);
-//       setLoading(false);
-//       return;
-//     }
-
-//     // STEP 2: Link the Auth User to your 'drivers' data table
-//     if (data.user) {
-//       const { error: dbError } = await supabase
-//         .from('drivers')
-//         .insert([
-//           { 
-//             id: data.user.id, // CRITICAL: This links the Login ID to the Driver Record
-//             name: name, 
-//             email: email, 
-//             status: 'Available',
-//             current_lat: 5.3544, // Default USM Penang coordinates
-//             current_lng: 100.3012 
-//           }
-//         ]);
-
-//       if (dbError) {
-//         alert("Account created, but database record failed: " + dbError.message);
-//       } else {
-//         alert("✅ Driver Registered! They can now log in to the mobile app.");
-//         // Clear fields after success
-//         setEmail('');
-//         setPassword('');
-//         setName('');
-//       }
-//     }
-//     setLoading(false);
-//   };
-
-//   return (
-//     <div className="add-driver-container">
-//       <h2 style={{ color: '#c0392b', marginBottom: '15px' }}>Fleet Management</h2>
-//       <p style={{ fontSize: '14px', color: '#666' }}>Register a new ambulance driver to the system.</p>
-      
-//       <form onSubmit={handleRegisterDriver}>
-//         <div className="form-group">
-//           <label>Driver Full Name</label>
-//           <input 
-//             type="text" 
-//             placeholder="e.g. Ahmad bin Ali"
-//             value={name} 
-//             onChange={(e) => setName(e.target.value)} 
-//             required 
-//           />
-//         </div>
-
-//         <div className="form-group">
-//           <label>Email Address</label>
-//           <input 
-//             type="email" 
-//             placeholder="driver@ambulance.com"
-//             value={email} 
-//             onChange={(e) => setEmail(e.target.value)} 
-//             required 
-//           />
-//         </div>
-
-//         <div className="form-group">
-//           <label>Password</label>
-//           <input 
-//             type="password" 
-//             placeholder="Min 6 characters"
-//             value={password} 
-//             onChange={(e) => setPassword(e.target.value)} 
-//             required 
-//           />
-//         </div>
-
-//         <button 
-//           type="submit" 
-//           className="btn-primary" 
-//           style={{ backgroundColor: '#2c3e50', width: '100%' }}
-//           disabled={loading}
-//         >
-//           {loading ? "Registering..." : "Add New Driver"}
-//         </button>
-//       </form>
-//     </div>
-//   );
-// };
-
-// export default AddDriver;
-
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabaseAdmin } from '../supabaseClient';
 
-const AddDriver = ({ onComplete }) => {
+const DEFAULT_LAT = 5.3544;
+const DEFAULT_LNG = 100.3012;
+
+const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defaultLng = null }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const facilityMode = Boolean(baseHospitalId);
+
   const handleRegisterDriver = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
 
-    // STEP 1: Create the User in Supabase Auth (for Flutter Login)
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
+    let currentLat = DEFAULT_LAT;
+    let currentLng = DEFAULT_LNG;
 
-    if (authError) {
-  if (authError.message.includes("already registered")) {
-    // 🟢 OPTIONAL: Logic to attempt Step 2 again if they already exist in Auth
-    alert("This email is already in Auth. Please delete it from the Supabase Auth tab first to reset.");
-  } else {
-    alert("Registration Failed: " + authError.message);
-  }
-  setLoading(false);
-  return;
-}
+    if (facilityMode) {
+      const la = defaultLat != null ? Number(defaultLat) : NaN;
+      const lo = defaultLng != null ? Number(defaultLng) : NaN;
+      if (!Number.isFinite(la) || !Number.isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
+        alert(
+          'Set your facility map position under Update beds (latitude/longitude) before adding drivers, so units appear on the map.'
+        );
+        setLoading(false);
+        return;
+      }
+      currentLat = la;
+      currentLng = lo;
+    }
 
-    // STEP 2: Link the Auth User to your 'drivers' data table
-    if (data.user) {
-      const { error: dbError } = await supabase
-        .from('drivers')
-        .insert([
-          { 
-            id: data.user.id, // Links Auth UID to the Driver Record
-            name: name, 
-            email: email, 
-            status: 'Offline', 
-            current_lat: 5.3544, 
-            current_lng: 100.3012 
-          }
-        ]);
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: trimmedEmail,
+        password,
+        email_confirm: true,
+      });
+
+      if (authError) {
+        const msg = authError.message || '';
+        alert(
+          /already|registered|exists/i.test(msg)
+            ? 'This email is already registered.'
+            : 'Registration failed: ' + msg
+        );
+        return;
+      }
+
+      const user = authData?.user;
+      if (!user?.id) {
+        alert('Registration failed: no user returned.');
+        return;
+      }
+
+      const insertRow = {
+        id: user.id,
+        name: trimmedName,
+        email: trimmedEmail,
+        status: 'Offline',
+        current_lat: currentLat,
+        current_lng: currentLng,
+      };
+      if (facilityMode && baseHospitalId) {
+        insertRow.base_hospital_id = baseHospitalId;
+      }
+
+      const { error: dbError } = await supabaseAdmin.from('drivers').insert(insertRow);
 
       if (dbError) {
-        // 🟢 ADD THIS LINE: It will reveal the exact cause in your Browser Console (F12)
-        console.error("Technical Database Error:", dbError);
-        
-        alert("Auth created, but DB record failed: " + dbError.message);
-      } else {
-        alert("✅ Unit Registered! Use these credentials in the Flutter app.");
-        if(onComplete) onComplete();
-        // Clear fields
-        setEmail('');
-        setPassword('');
-        setName('');
+        console.error('Driver DB insert:', dbError);
+        alert('Auth user was created, but the driver record failed: ' + dbError.message);
+        return;
       }
+
+      setEmail('');
+      setPassword('');
+      setName('');
+      if (onComplete) {
+        onComplete();
+      } else {
+        alert('Driver registered. They can sign in on the mobile app with this email and password.');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -187,7 +110,7 @@ const AddDriver = ({ onComplete }) => {
         </div>
 
         <button type="submit" className="confirm-btn" style={{ background: '#2c3e50' }} disabled={loading}>
-          {loading ? "REGISTERING..." : "ADD NEW UNIT"}
+          {loading ? 'REGISTERING...' : 'ADD NEW UNIT'}
         </button>
       </form>
     </div>

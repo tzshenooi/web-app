@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { supabase, supabaseAdmin } from '../supabaseClient';
 import MapComponent from './MapComponent';
@@ -6,6 +7,10 @@ import CreateBooking from './CreateBooking';
 import './Dashboard1.css'; 
 
 const libraries = ['places'];
+
+/** Matches MapComponent initialCenter; update in DB or add registration coords later. */
+const DEFAULT_HOSPITAL_LAT = 5.5135;
+const DEFAULT_HOSPITAL_LNG = 100.54;
 
 const SideIcon = ({ path, active = false, viewBox = '0 0 24 24' }) => (
   <svg
@@ -162,8 +167,174 @@ const VerificationQueue = ({ onStatusChange }) => {
   );
 };
 
+const FACILITY_REQ_POLL_MS = 4000;
+
+const FacilityRegistrationQueue = ({ onStatusChange, refreshTrigger = 0 }) => {
+  const [rows, setRows] = useState([]);
+  const [fetchError, setFetchError] = useState(null);
+
+  const fetchRows = useCallback(async () => {
+    const { data, error } = await supabaseAdmin
+      .from('facility_registrations')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error(error);
+      setFetchError(error.message);
+      setRows([]);
+      return;
+    }
+    setFetchError(null);
+    if (data) setRows(data);
+  }, []);
+
+  useEffect(() => {
+    fetchRows();
+  }, [fetchRows, refreshTrigger]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRows();
+    }, FACILITY_REQ_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchRows();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [fetchRows]);
+
+  const approve = async (row) => {
+    try {
+      const la = row.latitude != null && row.latitude !== '' ? Number(row.latitude) : NaN;
+      const lo = row.longitude != null && row.longitude !== '' ? Number(row.longitude) : NaN;
+      const useRegCoords =
+        Number.isFinite(la) &&
+        Number.isFinite(lo) &&
+        la >= -90 &&
+        la <= 90 &&
+        lo >= -180 &&
+        lo <= 180;
+
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from('hospitals')
+        .insert({
+          name: row.name,
+          specialty: row.specialty || 'General',
+          beds: 0,
+          latitude: useRegCoords ? la : DEFAULT_HOSPITAL_LAT,
+          longitude: useRegCoords ? lo : DEFAULT_HOSPITAL_LNG,
+        })
+        .select('id')
+        .single();
+      if (insErr) throw insErr;
+
+      if (row.auth_user_id && inserted?.id) {
+        const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(row.auth_user_id, {
+          app_metadata: {
+            facility_access: 'approved',
+            facility_hospital_id: inserted.id,
+          },
+        });
+        if (metaErr) {
+          alert(
+            'Hospital was created, but updating the user account failed: ' +
+              metaErr.message +
+              '. Set app_metadata in Supabase Auth for this user, or they must be fixed manually.'
+          );
+        }
+      }
+
+      const { error: delErr } = await supabaseAdmin.from('facility_registrations').delete().eq('id', row.id);
+      if (delErr) throw delErr;
+      alert(
+        'Facility approved. The user can open the Facility Portal after they sign in again (or refresh the session).'
+      );
+      fetchRows();
+      onStatusChange?.();
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
+  const reject = async (row) => {
+    if (!window.confirm(`Reject registration for "${row.name}"?`)) return;
+    try {
+      if (row.auth_user_id) {
+        const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(row.auth_user_id);
+        if (authErr && authErr.message !== 'User not found') throw authErr;
+      }
+      const { error } = await supabaseAdmin.from('facility_registrations').delete().eq('id', row.id);
+      if (error) throw error;
+      fetchRows();
+      onStatusChange?.();
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
+  return (
+    <div className="fleet-list-container">
+      {fetchError && (
+        <p style={{ color: '#b91c1c', textAlign: 'center', marginTop: '12px', fontSize: '0.9rem' }}>
+          Could not load requests: {fetchError}
+        </p>
+      )}
+      {!fetchError && rows.length === 0 ? (
+        <p style={{ color: '#64748b', textAlign: 'center', marginTop: '20px' }}>No pending facility requests.</p>
+      ) : !fetchError ? (
+        rows.map((row) => (
+          <div key={row.id} className="unit-card-new" style={{ cursor: 'default' }}>
+            <div className="card-main-content" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <strong className="unit-name-text">{row.name}</strong>
+              <span className="unit-sub-text">{row.specialty || 'General'}</span>
+              {row.contact_email && (
+                <span className="unit-sub-text" style={{ marginTop: '4px' }}>
+                  {row.contact_email}
+                </span>
+              )}
+              {row.latitude != null &&
+                row.longitude != null &&
+                row.latitude !== '' &&
+                row.longitude !== '' && (
+                  <span className="unit-sub-text" style={{ marginTop: '4px', fontSize: '0.8rem' }}>
+                    Map: {Number(row.latitude).toFixed(5)}, {Number(row.longitude).toFixed(5)}
+                  </span>
+                )}
+              <span className="unit-sub-text" style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+                Requested {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
+              </span>
+              <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => approve(row)}
+                  className="status-pill available"
+                  style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => reject(row)}
+                  className="status-pill full"
+                  style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        ))
+      ) : null}
+    </div>
+  );
+};
+
 // --- 🔵 MAIN COMPONENT: Dashboard ---
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [hospitals, setHospitals] = useState([]); 
@@ -180,6 +351,7 @@ const Dashboard = () => {
   const [expandedUnit, setExpandedUnit] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [trafficEnabled, setTrafficEnabled] = useState(false);
+  const [facilityRegRefresh, setFacilityRegRefresh] = useState(0);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo", 
@@ -266,6 +438,16 @@ const Dashboard = () => {
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'facility_registrations' }, (payload) => {
+        if (payload.eventType === 'INSERT' && payload.new) {
+          const name = payload.new.name || 'Unknown';
+          setNotifications((prev) => [
+            { id: `fac-req-${payload.new.id}`, type: 'status', msg: `New facility request: ${name}`, time: 'Just now' },
+            ...prev,
+          ]);
+        }
+        setFacilityRegRefresh((n) => n + 1);
+      })
       .subscribe();
 
     const onWindowFocus = () => fetchData();
@@ -275,6 +457,11 @@ const Dashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [fetchData, playDispatchSound]);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   const calculateETA = useCallback((driver, booking) => {
     if (!window.google || !driver || !booking) return;
@@ -380,6 +567,17 @@ const Dashboard = () => {
                     path="M8 4v16M16 4v16M4 8h16M4 14h16M4 4h16v16H4z"
                   />
                 </div>
+                <div className={`nav-link ${view === 'facilityRegs' ? 'active' : ''}`} onClick={() => setView('facilityRegs')} title="Facility requests">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden>
+                    <path
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 12h6M9 16h6"
+                      stroke={view === 'facilityRegs' ? '#60A5FA' : '#F8FAFC'}
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
                 <div className={`nav-link ${view === 'verify' ? 'active' : ''}`} onClick={() => setView('verify')} title="Verify Drivers">
                   <SideIcon
                     active={view === 'verify'}
@@ -388,8 +586,8 @@ const Dashboard = () => {
                 </div>
              </div>
              <div className="nav-bottom-group">
-               <div className="nav-link" title="Settings">
-                 <SideIcon path="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5zM19 12a7.8 7.8 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.9 7.9 0 0 0-2.1-1.2L14 3h-4l-.4 2.6a7.9 7.9 0 0 0-2.1 1.2l-2.4-1-2 3.4 2 1.6A7.8 7.8 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2.1 1.2L10 21h4l.4-2.6c.8-.3 1.5-.7 2.1-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z" />
+               <div className="nav-link" title="Sign out" onClick={logout} role="button">
+                 <SideIcon path="M9 7l-5 5 5 5M4 12h12M15 5h5v14h-5" />
                </div>
              </div>
           </nav>
@@ -399,7 +597,13 @@ const Dashboard = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                   <h1 className="hud-title">
-                    {view === 'fleet' ? 'Active Vehicles' : view === 'hospitals' ? 'Facilities' : 'Verify Drivers'}
+                    {view === 'fleet'
+                      ? 'Active Vehicles'
+                      : view === 'hospitals'
+                        ? 'Facilities'
+                        : view === 'facilityRegs'
+                          ? 'Facility requests'
+                          : 'Verify Drivers'}
                   </h1>
                   {view === 'fleet' && (
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
@@ -413,15 +617,19 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
-              <div className="search-wrapper">
-                <input type="text" placeholder="Search..." className="hud-search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-              </div>
+              {(view === 'fleet' || view === 'hospitals') && (
+                <div className="search-wrapper">
+                  <input type="text" placeholder="Search..." className="hud-search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+              )}
             </header>
             
             <div className="hud-scroll-hide">
               {/* 🟢 CONDITIONAL VIEW LOGIC */}
               {view === 'verify' ? (
                 <VerificationQueue onStatusChange={fetchData} />
+              ) : view === 'facilityRegs' ? (
+                <FacilityRegistrationQueue onStatusChange={fetchData} refreshTrigger={facilityRegRefresh} />
               ) : view === 'fleet' ? (
                 <div className="fleet-list-container">
                   {filteredData.map(driver => {
