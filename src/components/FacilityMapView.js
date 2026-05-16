@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api';
+import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
+import { buildGoogleMapOptions } from '../config/googleMapDisplayOptions';
 
 const libraries = [];
 const defaultCenter = { lat: 5.4136, lng: 100.3293 };
@@ -77,11 +79,7 @@ const FacilityMapInner = ({ facilityPos, routes, facilityName }) => {
       center={center}
       zoom={12}
       onLoad={setMap}
-      options={{
-        disableDefaultUI: true,
-        zoomControl: true,
-        gestureHandling: 'greedy',
-      }}
+      options={buildGoogleMapOptions()}
     >
       {facilityPos && (
         <Marker
@@ -125,7 +123,7 @@ const FacilityMapInner = ({ facilityPos, routes, facilityName }) => {
 
 const FacilityMapView = (props) => {
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: 'AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries,
   });
 

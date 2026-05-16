@@ -897,15 +897,36 @@ body {
   background: rgba(8, 145, 178, 0.2);
 }
 
-.facility-beds-inline {
-  color: #cbd5e1;
-  font-weight: 700;
-  font-size: 0.78rem;
-}
-
 .facility-muted {
   color: #94a3b8;
   margin: 0;
+}
+
+.map-setup-error {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  text-align: left;
+}
+
+.map-setup-error h2 {
+  margin: 0 0 0.75rem;
+}
+
+.map-setup-checklist {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.map-setup-checklist li {
+  margin-bottom: 0.5rem;
+}
+
+.map-setup-error code {
+  font-size: 0.9em;
+  color: #e2e8f0;
 }
 
 @media (max-width: 980px) {
@@ -943,15 +964,29 @@ body {
 }
 
 /* Facility portal: full-height white HUD (same column height as sidebar); body scrolls inside */
+.facility-portal-map-shell .ui-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.facility-portal-map-shell .banner-anchor {
+  flex-shrink: 0;
+}
 .facility-portal-map-shell .workspace-content {
+  flex: 1 1 auto;
+  min-height: 0;
   align-items: stretch;
+  overflow: hidden;
 }
 .facility-portal-map-shell .hud-panel {
   flex: 0 0 310px;
+  width: 310px;
+  max-width: 310px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
   overflow: hidden;
 }
 .facility-portal-map-shell .hud-scroll-hide {
@@ -959,9 +994,62 @@ body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 4px 20px 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.facility-portal-map-shell .hud-scroll-hide::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .facility-portal-map-shell .hud-header {
   flex-shrink: 0;
+}
+.facility-portal-map-shell .hud-scroll-hide .fleet-list-container {
+  padding-bottom: 8px;
+}
+.facility-portal-map-shell .mission-clinical-card .modern-input,
+.facility-portal-map-shell .mission-clinical-card .modern-select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.incoming-mission-card {
+  width: 100%;
+}
+
+.incoming-mission-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.incoming-mission-name-row:hover .unit-name-text {
+  color: #2563eb;
+}
+
+.incoming-mission-chevron {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.incoming-mission-details {
+  width: 100%;
+  padding-top: 8px;
 }
 
 /* Facility portal: dashboard-structure bridge */

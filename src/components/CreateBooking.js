@@ -1,115 +1,212 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import Autocomplete from 'react-google-autocomplete';
+import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
+import { DESTINATION_TYPES, medicationDefaultForDestination } from '../constants/missionClinical';
 
-const CreateBooking = ({ onBookingCreated, onLocationSelected, drivers }) => {
+const PRIORITIES = ['Medical', 'Trauma', 'Cardiac'];
+
+const CreateBooking = ({ onBookingCreated, onLocationSelected, drivers = [] }) => {
   const [patientName, setPatientName] = useState('');
   const [location, setLocation] = useState(null);
   const [priority, setPriority] = useState('Medical');
   const [notes, setNotes] = useState('');
+  const [patientId, setPatientId] = useState('');
+  const [hospitalName, setHospitalName] = useState('');
+  const [destinationType, setDestinationType] = useState('');
+  const [medicationEligible, setMedicationEligible] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // --- NEW: Calculate the nearest driver based on GPS ---
- const nearestDriver = useMemo(() => {
-  // 🟢 CHANGE: Filter to only include drivers with status 'Available'
-  const availableDrivers = drivers?.filter(d => d.status === 'Available') || [];
+  /** One ambulance: whichever driver account is Available gets the job. */
+  const ambulanceDriver = useMemo(
+    () => drivers.find((d) => d.status === 'Available') ?? null,
+    [drivers]
+  );
 
-  if (!location || availableDrivers.length === 0) return null;
-
-  return availableDrivers.reduce((prev, curr) => {
-    const getDist = (d) => Math.sqrt(Math.pow(d.current_lat - location.lat, 2) + Math.pow(d.current_lng - location.lng, 2));
-    return getDist(curr) < getDist(prev) ? curr : prev;
-  });
-}, [location, drivers]);
+  const driverStatusText = useMemo(() => {
+    if (!drivers.length) return 'No driver registered for this clinic yet.';
+    if (!ambulanceDriver) return 'Put a driver on Available in the mobile app before dispatching.';
+    return `Ambulance: ${ambulanceDriver.name || ambulanceDriver.email || 'Driver'}`;
+  }, [drivers.length, ambulanceDriver]);
 
   const handlePlaceSelect = (place) => {
-    if (!place.geometry) return;
-    const locData = {
-      address: place.formatted_address,
-      lat: place.geometry.location.lat(),
-      lng: place.geometry.location.lng(),
-    };
-    setLocation(locData);
-    onLocationSelected(locData); 
+    if (!place?.geometry?.location) return;
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    const address = place.formatted_address || place.name || '';
+    const next = { address, lat, lng };
+    setLocation(next);
+    if (onLocationSelected) onLocationSelected({ lat, lng });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!location) return alert("Select a location.");
-    setLoading(true);
-    
-    // --- FIXED: Now including the driver_id ---
-    const { error } = await supabase.from('bookings').insert([{
-      patient_name: patientName,
-      location: location.address,
-      latitude: location.lat,
-      longitude: location.lng,
-      emergency_type: priority,
-      notes: notes,
-      status: 'Pending',
-      driver_id: nearestDriver ? nearestDriver.id : null // ASIGNING THE UNIT
-    }]);
-
-    if (!error) {
-      onBookingCreated();
-      onLocationSelected(null);
-    } else {
-      console.error("Supabase Error:", error.message);
-      alert("Error creating booking. Check console.");
+    if (!patientName.trim()) {
+      alert('Enter the patient name.');
+      return;
     }
-    setLoading(false);
+    if (!location?.lat || !location?.lng) {
+      alert('Select an incident address from the suggestions.');
+      return;
+    }
+    if (!destinationType) {
+      alert('Select the destination type.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('bookings').insert({
+        patient_name: patientName.trim(),
+        patient_id: patientId.trim(),
+        location: location.address,
+        latitude: location.lat,
+        longitude: location.lng,
+        emergency_type: priority,
+        notes: notes.trim() || null,
+        status: 'Pending',
+        driver_id: ambulanceDriver?.id ?? null,
+        requested_at: new Date().toISOString(),
+        hospital_name: hospitalName.trim() || null,
+        destination_type: destinationType,
+        medication_service_eligible: medicationEligible,
+      });
+
+      if (error) throw error;
+
+      setPatientName('');
+      setLocation(null);
+      setPriority('Medical');
+      setNotes('');
+      setPatientId('');
+      setHospitalName('');
+      setDestinationType('');
+      setMedicationEligible(true);
+      if (onLocationSelected) onLocationSelected(null);
+      if (onBookingCreated) onBookingCreated();
+    } catch (err) {
+      alert(err.message || 'Could not create dispatch.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="dispatch-container">
-      <form onSubmit={handleSubmit} className="dispatch-form">
-        <div className="input-group">
-          <label className="field-label">PATIENT NAME</label>
-          <input type="text" className="modern-input" value={patientName} onChange={(e) => setPatientName(e.target.value)} required />
-        </div>
+    <form className="create-booking-form" onSubmit={handleSubmit} style={{ padding: '8px 4px 4px' }}>
+      <div className="input-group">
+        <label className="field-label">PATIENT ID</label>
+        <input
+          type="text"
+          className="modern-input"
+          value={patientId}
+          onChange={(e) => setPatientId(e.target.value)}
+          placeholder="NRIC / hospital registration no."
+          required
+        />
+      </div>
+      <div className="input-group">
+        <label className="field-label">PATIENT NAME</label>
+        <input
+          type="text"
+          className="modern-input"
+          value={patientName}
+          onChange={(e) => setPatientName(e.target.value)}
+          placeholder="e.g. Siti Aminah"
+          required
+        />
+      </div>
 
-        <div className="input-group">
-          <label className="field-label">INCIDENT LOCATION</label>
-          <Autocomplete
-            apiKey="AIzaSyA4N7C2qiLgqaHsYWpxltHI4UvWyx1G-bo"
-            onPlaceSelected={handlePlaceSelect}
-            options={{ types: [], componentRestrictions: { country: 'my' } }}
-            className="modern-input"
-            placeholder="Enter a location"
-          />
-        </div>
+      <div className="input-group">
+        <label className="field-label">HOSPITAL NAME (OPTIONAL)</label>
+        <input
+          type="text"
+          className="modern-input"
+          value={hospitalName}
+          onChange={(e) => setHospitalName(e.target.value)}
+          placeholder="Receiving / referring hospital"
+        />
+      </div>
+      <div className="input-group">
+        <label className="field-label">DESTINATION</label>
+        <select
+          className="modern-select"
+          value={destinationType}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDestinationType(v);
+            const def = medicationDefaultForDestination(v);
+            if (def !== null) setMedicationEligible(def);
+          }}
+          required
+        >
+          <option value="">Select…</option>
+          {DESTINATION_TYPES.map((d) => (
+            <option key={d.value} value={d.value}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <label className="auth-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <input
+          type="checkbox"
+          checked={medicationEligible}
+          onChange={(e) => setMedicationEligible(e.target.checked)}
+        />
+        <span style={{ fontSize: '0.85rem' }}>Clinic can provide medication</span>
+      </label>
 
-        <div className="input-row" style={{ display: 'flex', gap: '20px', marginBottom: '22px' }}>
-  <div className="input-half" style={{ flex: 1 }}>
-     <label className="field-label">PRIORITY</label>
-     <select className="modern-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
-       <option>Medical</option>
-       <option>Trauma</option>
-       <option>Cardiac</option>
-     </select>
-  </div>
-  
-  <div className="input-half" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-    <label className="field-label" style={{ textAlign: 'left', display: 'block', width: '100%' }}>NEAREST UNIT</label>
-    <div className={`nearest-unit-box ${nearestDriver ? 'ready' : 'waiting'}`}>
-  {nearestDriver 
-    ? `Unit ${nearestDriver.name}` 
-    : (drivers.some(d => d.status === 'Available') ? "Awaiting GPS..." : "NO UNITS ON DUTY")
-  }
-</div>
-  </div>
-        </div>
+      <div className="input-group">
+        <label className="field-label">INCIDENT ADDRESS</label>
+        <Autocomplete
+          apiKey={GOOGLE_MAPS_API_KEY}
+          onPlaceSelected={handlePlaceSelect}
+          options={{
+            types: ['geocode'],
+            componentRestrictions: { country: 'my' },
+          }}
+          className="modern-input"
+          placeholder="Search pickup location…"
+          style={{ width: '100%', marginBottom: 22 }}
+        />
+        {location?.address && (
+          <p className="facility-muted" style={{ marginTop: -12, marginBottom: 16, fontSize: '0.85rem' }}>
+            {location.address}
+          </p>
+        )}
+      </div>
 
-        <div className="input-group">
-          <label className="field-label">CRITICAL NOTES</label>
-          <textarea className="modern-input" style={{minHeight: '80px', resize: 'none'}} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
+      <div className="input-group">
+        <label className="field-label">PRIORITY</label>
+        <select className="modern-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <button type="submit" className="confirm-btn" disabled={loading || !location}>
-          {loading ? "COMMUNICATING..." : "CONFIRM DISPATCH"}
-        </button>
-      </form>
-    </div>
+      <div className="input-group">
+        <label className="field-label">NOTES (OPTIONAL)</label>
+        <textarea
+          className="modern-input"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Access, vitals, caller phone…"
+          rows={3}
+          style={{ resize: 'vertical', minHeight: 72 }}
+        />
+      </div>
+
+      <p className="facility-muted" style={{ marginBottom: 12, fontSize: '0.9rem' }}>
+        {driverStatusText}
+      </p>
+
+      <button type="submit" className="confirm-btn" disabled={loading}>
+        {loading ? 'SENDING…' : 'SEND DISPATCH'}
+      </button>
+    </form>
   );
 };
 

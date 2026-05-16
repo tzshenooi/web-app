@@ -4,13 +4,13 @@ import { supabaseAdmin } from '../supabaseClient';
 const DEFAULT_LAT = 5.3544;
 const DEFAULT_LNG = 100.3012;
 
-const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defaultLng = null }) => {
+const AddDriver = ({ onComplete, baseClinicId = null, defaultLat = null, defaultLng = null }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const facilityMode = Boolean(baseHospitalId);
+  const facilityMode = Boolean(baseClinicId);
 
   const handleRegisterDriver = async (e) => {
     e.preventDefault();
@@ -26,7 +26,7 @@ const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defau
       const lo = defaultLng != null ? Number(defaultLng) : NaN;
       if (!Number.isFinite(la) || !Number.isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
         alert(
-          'Set your facility map position under Update beds (latitude/longitude) before adding drivers, so units appear on the map.'
+          'Set your clinic map position under Clinic location (latitude/longitude) before adding drivers, so units appear on the map.'
         );
         setLoading(false);
         return;
@@ -36,10 +36,17 @@ const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defau
     }
 
     try {
+      const appMeta = { role: 'driver' };
+      if (facilityMode && baseClinicId) {
+        appMeta.base_clinic_id = String(baseClinicId);
+      }
+
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: trimmedEmail,
         password,
         email_confirm: true,
+        user_metadata: { role: 'driver', name: trimmedName },
+        app_metadata: appMeta,
       });
 
       if (authError) {
@@ -66,11 +73,11 @@ const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defau
         current_lat: currentLat,
         current_lng: currentLng,
       };
-      if (facilityMode && baseHospitalId) {
-        insertRow.base_hospital_id = baseHospitalId;
+      if (facilityMode && baseClinicId) {
+        insertRow.base_clinic_id = baseClinicId;
       }
 
-      const { error: dbError } = await supabaseAdmin.from('drivers').insert(insertRow);
+      const { error: dbError } = await supabaseAdmin.from('drivers').upsert(insertRow, { onConflict: 'id' });
 
       if (dbError) {
         console.error('Driver DB insert:', dbError);
@@ -82,7 +89,7 @@ const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defau
       setPassword('');
       setName('');
       if (onComplete) {
-        onComplete();
+        await onComplete();
       } else {
         alert('Driver registered. They can sign in on the mobile app with this email and password.');
       }
@@ -110,7 +117,7 @@ const AddDriver = ({ onComplete, baseHospitalId = null, defaultLat = null, defau
         </div>
 
         <button type="submit" className="confirm-btn" style={{ background: '#2c3e50' }} disabled={loading}>
-          {loading ? 'REGISTERING...' : 'ADD NEW UNIT'}
+          {loading ? 'REGISTERING...' : 'ADD DRIVER LOGIN'}
         </button>
       </form>
     </div>

@@ -1,0 +1,2 @@
+-- Superseded by migrate_to_clinics.sql (uses assigned_clinic_id on bookings).
+-- Run migrate_to_clinics.sql instead if you are on the new clinics schema.

@@ -1,21 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase, supabaseAdmin } from '../supabaseClient';
+import ClinicAddressField from './ClinicAddressField';
 import '../App.css';
 
 const RegisterFacility = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [hospitals, setHospitals] = useState([]);
+  const [clinicNames, setClinicNames] = useState([]);
   const [registering, setRegistering] = useState(false);
   const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', latitude: '', longitude: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '' });
+  const [clinicLocation, setClinicLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('hospitals').select('name');
-      if (data) setHospitals(data);
+      const { data } = await supabase.from('clinics').select('name');
+      if (data) setClinicNames(data);
     };
     load();
   }, []);
@@ -43,29 +46,23 @@ const RegisterFacility = () => {
     const email = account.email.trim();
     const { password } = account;
 
-    if (!name) return showToast('error', 'Enter a facility name.');
-    if (hospitals.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
-      return showToast('error', 'That name is already registered.');
+    if (!name) return showToast('error', 'Enter a clinic name.');
+    if (clinicNames.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
+      return showToast('error', 'That clinic name is already registered.');
     }
 
-    const latStr = String(registerForm.latitude ?? '').trim();
-    const lngStr = String(registerForm.longitude ?? '').trim();
-    if (Boolean(latStr) !== Boolean(lngStr)) {
-      return showToast('error', 'Enter both latitude and longitude, or leave both blank.');
+    const { data: emailTaken } = await supabase.from('clinics').select('id').ilike('email', email).maybeSingle();
+    if (emailTaken) return showToast('error', 'This email is already linked to a clinic.');
+
+    if (!clinicLocation?.address || !Number.isFinite(clinicLocation.latitude) || !Number.isFinite(clinicLocation.longitude)) {
+      return showToast('error', 'Search and pick your clinic address from the suggestions.');
     }
-    let latitude = null;
-    let longitude = null;
-    if (latStr && lngStr) {
-      const la = Number(latStr);
-      const lo = Number(lngStr);
-      if (!Number.isFinite(la) || !Number.isFinite(lo)) {
-        return showToast('error', 'Latitude and longitude must be valid numbers.');
-      }
-      if (la < -90 || la > 90 || lo < -180 || lo > 180) {
-        return showToast('error', 'Coordinates are out of range.');
-      }
-      latitude = la;
-      longitude = lo;
+
+    if (!supabaseAdmin) {
+      return showToast(
+        'error',
+        'Registration is not configured. Add REACT_APP_SUPABASE_SERVICE_ROLE_KEY to web-app/.env and restart the dev server.'
+      );
     }
 
     setRegistering(true);
@@ -75,16 +72,14 @@ const RegisterFacility = () => {
         email,
         password,
         email_confirm: true,
-        app_metadata: { facility_access: 'pending' },
+        app_metadata: { clinic_access: 'pending' },
       });
 
       if (authError) {
         const msg = authError.message || '';
         showToast(
           'error',
-          /already|registered|exists/i.test(msg)
-            ? 'This email is already registered.'
-            : msg
+          /already|registered|exists/i.test(msg) ? 'This email is already registered.' : msg
         );
         return;
       }
@@ -96,35 +91,53 @@ const RegisterFacility = () => {
       }
       createdUserId = user.id;
 
-      const insertPayload = {
+      const clinicPayload = {
         name,
+        email,
         specialty: specialty || 'General',
-        contact_email: email,
         auth_user_id: user.id,
+        address: clinicLocation.address,
+        latitude: clinicLocation.latitude,
+        longitude: clinicLocation.longitude,
       };
-      if (latitude != null && longitude != null) {
-        insertPayload.latitude = latitude;
-        insertPayload.longitude = longitude;
+
+      const { data: clinicRow, error: clinicError } = await supabaseAdmin
+        .from('clinics')
+        .insert(clinicPayload)
+        .select('id')
+        .single();
+
+      if (clinicError) {
+        await supabaseAdmin.auth.admin.deleteUser(user.id);
+        if (clinicError.code === '23505') {
+          return showToast('error', 'That clinic name or email is already registered.');
+        }
+        if (clinicError.code === 'PGRST204' || /address/i.test(clinicError.message || '')) {
+          return showToast(
+            'error',
+            'Database is missing the address column. Run web-app/supabase/clinics_address.sql in Supabase SQL Editor.'
+          );
+        }
+        return showToast('error', clinicError.message);
       }
 
-      const { error } = await supabase.from('facility_registrations').insert(insertPayload);
-
-      if (error) {
-        if (error.code === '23505') {
-          await supabaseAdmin.auth.admin.deleteUser(user.id);
-          return showToast('error', 'A request with that name is already pending.');
-        }
+      const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        app_metadata: {
+          clinic_access: 'approved',
+          clinic_id: clinicRow.id,
+        },
+      });
+      if (metaError) {
+        await supabaseAdmin.from('clinics').delete().eq('id', clinicRow.id);
         await supabaseAdmin.auth.admin.deleteUser(user.id);
-        return showToast('error', error.message);
+        return showToast('error', metaError.message);
       }
 
       setAccount({ email: '', password: '', confirmPassword: '' });
-      setRegisterForm({ name: '', specialty: '', latitude: '', longitude: '' });
+      setRegisterForm({ name: '', specialty: '' });
+      setClinicLocation(null);
       setStep(1);
-      showToast(
-        'success',
-        'Request submitted. A dispatcher will review it before the facility appears in the system.'
-      );
+      navigate('/', { replace: true, state: { loginNotice: 'clinic_registered' } });
     } catch (err) {
       showToast('error', err.message || String(err));
       if (createdUserId) {
@@ -139,11 +152,11 @@ const RegisterFacility = () => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>Register facility</h1>
+          <h1>Register clinic</h1>
           {step === 1 ? (
-            <p>Sign-in email and password for the Facility Portal after approval.</p>
+            <p>Sign-in email and password for the Clinic Portal.</p>
           ) : (
-            <p>Name, specialty, and optional map coordinates. Your request must be approved by a dispatcher.</p>
+            <p>Clinic name, specialty, and address (used for the map pin). Your email is stored on the clinic record.</p>
           )}
         </div>
 
@@ -202,7 +215,7 @@ const RegisterFacility = () => {
         {step === 2 && (
           <form onSubmit={registerFacility} className="auth-form">
             <div className="auth-field">
-              <label htmlFor="reg-name">Facility name</label>
+              <label htmlFor="reg-name">Clinic name</label>
               <input
                 id="reg-name"
                 className="auth-input"
@@ -224,36 +237,20 @@ const RegisterFacility = () => {
               />
             </div>
             <div className="auth-field">
-              <label htmlFor="reg-lat">Latitude (optional)</label>
-              <input
-                id="reg-lat"
-                className="auth-input"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={registerForm.latitude}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, latitude: e.target.value }))}
-                placeholder="e.g. 5.4164"
+              <label htmlFor="reg-address">Clinic address</label>
+              <ClinicAddressField
+                inputId="reg-address"
+                value={clinicLocation}
+                onPlaceSelected={setClinicLocation}
+                placeholder="Search street, building, or area…"
+                disabled={registering}
               />
+              <p className="facility-muted" style={{ marginTop: 6, fontSize: '0.8rem' }}>
+                Pick a suggestion so we can place your clinic on the map.
+              </p>
             </div>
-            <div className="auth-field">
-              <label htmlFor="reg-lng">Longitude (optional)</label>
-              <input
-                id="reg-lng"
-                className="auth-input"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={registerForm.longitude}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, longitude: e.target.value }))}
-                placeholder="e.g. 100.3327"
-              />
-            </div>
-            <p className="auth-facility-note" style={{ marginTop: '-4px', marginBottom: '8px' }}>
-              Optional: pin your building on the map. Leave blank to set later in Facility Portal or by the dispatcher.
-            </p>
             <button type="submit" className="auth-submit" disabled={registering}>
-              {registering ? 'Submitting...' : 'Submit request'}
+              {registering ? 'Submitting...' : 'Create clinic account'}
             </button>
             <p style={{ textAlign: 'center', margin: '12px 0 0' }}>
               <button
