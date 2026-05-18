@@ -1,8 +1,28 @@
 /** Placeholder when NRIC / hospital no. is not known at dispatch (update after on-scene). */
 export const UNKNOWN_PATIENT_ID = 'UNKNOWN';
 
+/** Advance / bedridden booking waiting for clinic to dispatch ambulance. */
+export const SCHEDULED_BOOKING_STATUS = 'Scheduled';
+
 /** Clinic Incoming + fleet: mission still in progress (hidden after driver completes discharge). */
 export const ACTIVE_CLINIC_MISSION_STATUSES = ['Pending', 'Assigned', 'Accepted', 'En Route', 'Picked Up'];
+
+export function isScheduledBooking(booking) {
+  return booking?.status === SCHEDULED_BOOKING_STATUS || booking?.booking_kind === 'scheduled';
+}
+
+export function formatScheduledPickup(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('en-MY', {
+      weekday: 'short',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return String(iso);
+  }
+}
 
 export function isActiveClinicMission(status) {
   return ACTIVE_CLINIC_MISSION_STATUSES.includes(status);

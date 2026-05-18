@@ -45,7 +45,14 @@ create table public.clinics (
   address text,
   specialty text default 'General',
   phone text,
-  created_at timestamptz not null default now()
+  bed_capacity integer not null default 0,
+  beds_occupied integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint clinics_beds_ok check (
+    beds_occupied >= 0
+    and bed_capacity >= 0
+    and (bed_capacity = 0 or beds_occupied <= bed_capacity)
+  )
 );
 
 create unique index clinics_name_lower_idx on public.clinics (lower(name));
@@ -115,7 +122,15 @@ create table public.bookings (
   hospital_name text,
   destination_type text,
   medication_service_eligible boolean,
-  created_at timestamptz not null default now()
+  booking_kind text not null default 'emergency',
+  scheduled_at timestamptz,
+  is_bedridden boolean not null default false,
+  reporter_user_id uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint bookings_booking_kind_check check (booking_kind in ('emergency', 'scheduled')),
+  constraint bookings_scheduled_at_check check (
+    booking_kind <> 'scheduled' or scheduled_at is not null
+  )
 );
 
 create index bookings_driver_id_idx on public.bookings (driver_id);
@@ -250,6 +265,35 @@ create policy bookings_insert_patient_report on public.bookings
       where pr.id = patient_report_id
         and pr.reporter_user_id = auth.uid()
     )
+  );
+
+create policy bookings_insert_patient_scheduled on public.bookings
+  for insert to authenticated
+  with check (
+    status = 'Scheduled'
+    and booking_kind = 'scheduled'
+    and driver_id is null
+    and patient_report_id is null
+    and reporter_user_id = auth.uid()
+    and scheduled_at is not null
+    and assigned_clinic_id is not null
+  );
+
+create policy bookings_select_patient_own_scheduled on public.bookings
+  for select to authenticated
+  using (reporter_user_id = auth.uid());
+
+create policy bookings_update_patient_cancel_scheduled on public.bookings
+  for update to authenticated
+  using (
+    reporter_user_id = auth.uid()
+    and status = 'Scheduled'
+    and driver_id is null
+  )
+  with check (
+    reporter_user_id = auth.uid()
+    and status = 'Cancelled'
+    and driver_id is null
   );
 
 create policy bookings_select_facility_patient_pending on public.bookings

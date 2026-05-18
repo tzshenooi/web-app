@@ -6,19 +6,25 @@ import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
 import MapComponent from './MapComponent';
 import AddDriver from './AddDriver';
 import CreateBooking from './CreateBooking';
+import CreateScheduledBooking from './CreateScheduledBooking';
+import ScheduledBookingsPanel from './ScheduledBookingsPanel';
 import { canAccessClinicPortal, fetchClinicRow, resolveClinicId } from '../utils/resolveClinic';
 import { useMapsAuthFailure } from '../hooks/useMapsAuthFailure';
 import GoogleMapsSetupHelp from './GoogleMapsSetupHelp';
-import ClinicAddressField from './ClinicAddressField';
 import DriverFleetDashboard from './DriverFleetDashboard';
 import IncomingMissionCard from './IncomingMissionCard';
 import ClinicRecordsArchive from './ClinicRecordsArchive';
+import BedAvailabilityPanel from './BedAvailabilityPanel';
+import SettingsFacilitySite from './SettingsFacilitySite';
+import ClinicNotificationBell from './ClinicNotificationBell';
 import { scopeBookingToClinic } from '../utils/scopeClinicBooking';
 import { syncPatientReportClinical } from '../utils/syncPatientReportClinical';
 import {
   ACTIVE_CLINIC_MISSION_STATUSES,
+  SCHEDULED_BOOKING_STATUS,
   UNKNOWN_PATIENT_ID,
   isActiveClinicMission,
+  isScheduledBooking,
   patientReportMissionDisplay,
 } from '../constants/missionClinical';
 import './Dashboard1.css';
@@ -42,6 +48,54 @@ const HeaderLocationIcon = () => (
   </svg>
 );
 
+/** Side nav: settings (gear). */
+const SettingsNavIcon = ({ active = false }) => {
+  const c = active ? '#60A5FA' : '#F8FAFC';
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden="true">
+      <circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.8" />
+      <path
+        d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"
+        stroke={c}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+};
+
+/** Side nav: scheduled / advance bookings. */
+const ScheduledNavIcon = ({ active = false }) => {
+  const c = active ? '#60A5FA' : '#F8FAFC';
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden="true">
+      <path
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        stroke={c}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+/** Side nav: beds. */
+const BedNavIcon = ({ active = false }) => {
+  const c = active ? '#60A5FA' : '#F8FAFC';
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden="true">
+      <path
+        d="M3 14v6M21 14v6M3 18h18M4 10V8a1 1 0 011-1h3v3H4zM9 8h12a2 2 0 012 2v4H9V8z"
+        stroke={c}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
 const toKm = (lat1, lng1, lat2, lng2) => {
   const toRad = (d) => (d * Math.PI) / 180;
   const R = 6371;
@@ -55,7 +109,7 @@ const toKm = (lat1, lng1, lat2, lng2) => {
 
 const FacilityPortal = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState('availability');
+  const [view, setView] = useState('incoming');
   const [clinic, setClinic] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -71,7 +125,9 @@ const FacilityPortal = () => {
   const [trackedDriverId, setTrackedDriverId] = useState(null);
   const [trafficEnabled, setTrafficEnabled] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [showScheduledModal, setShowScheduledModal] = useState(false);
   const [dispatchPreviewLocation, setDispatchPreviewLocation] = useState(null);
+  const [scheduledPreviewLocation, setScheduledPreviewLocation] = useState(null);
   const initialPassRef = useRef(true);
   const toastTimerRef = useRef(null);
 
@@ -159,18 +215,27 @@ const FacilityPortal = () => {
       console.error('drivers fetch:', drvErr);
       showToast('error', `Could not load drivers: ${drvErr.message}`);
     }
-    const [{ data: activeBookings }, { data: completedBookings }] = await Promise.all([
-      supabase.from('bookings').select('*').in('status', ACTIVE_CLINIC_MISSION_STATUSES),
-      supabase
-        .from('bookings')
-        .select('*')
-        .eq('status', 'Completed')
-        .order('created_at', { ascending: false })
-        .limit(150),
-    ]);
+    const bookingDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
+    const [{ data: activeBookings }, { data: completedBookings }, { data: scheduledBookings }] =
+      await Promise.all([
+        supabase.from('bookings').select('*').in('status', ACTIVE_CLINIC_MISSION_STATUSES),
+        supabase
+          .from('bookings')
+          .select('*')
+          .eq('status', 'Completed')
+          .order('created_at', { ascending: false })
+          .limit(150),
+        bookingDb
+          .from('bookings')
+          .select('*')
+          .eq('status', SCHEDULED_BOOKING_STATUS)
+          .or(`assigned_clinic_id.eq.${clinicId},assigned_clinic_id.is.null`),
+      ]);
 
     const bookingById = new Map();
-    [...(activeBookings || []), ...(completedBookings || [])].forEach((b) => bookingById.set(b.id, b));
+    [...(activeBookings || []), ...(completedBookings || []), ...(scheduledBookings || [])].forEach(
+      (b) => bookingById.set(b.id, b)
+    );
 
     if (drv) setDrivers(drv);
     setBookings([...bookingById.values()]);
@@ -205,9 +270,9 @@ const FacilityPortal = () => {
     setMapFocus({ lat, lng, timestamp: Date.now(), setZoom });
   }, []);
 
-  // Clinic pin only when viewing clinic location — not on every realtime refresh.
+  // Map pin when editing facility site in Settings.
   useEffect(() => {
-    if (view !== 'availability' || !selectedFacility) return;
+    if (view !== 'settings' || !selectedFacility) return;
     const lat = Number(selectedFacility.latitude ?? selectedFacility.lat);
     const lng = Number(selectedFacility.longitude ?? selectedFacility.lng);
     focusMap(lat, lng, { setZoom: true });
@@ -250,7 +315,7 @@ const FacilityPortal = () => {
       );
       if (firstOnMission) setTrackedDriverId(firstOnMission.id);
     }
-    if (view === 'availability') setTrackedDriverId(null);
+    if (view === 'settings' || view === 'beds' || view === 'scheduled') setTrackedDriverId(null);
   }, [view, drivers, bookings, trackedDriverId, activeMissionStatuses]);
 
   const showToast = (type, text) => {
@@ -263,6 +328,14 @@ const FacilityPortal = () => {
     () => drivers.find((d) => d.status === 'Available') ?? null,
     [drivers]
   );
+
+  const driverIdsAtClinic = useMemo(() => drivers.map((d) => d.id), [drivers]);
+
+  const scheduledBookingCount = useMemo(() => {
+    if (!selectedFacility) return 0;
+    const clinicId = String(selectedFacility.id);
+    return bookings.filter((b) => isScheduledBooking(b) && scopeBookingToClinic(b, clinicId, driverIdsAtClinic)).length;
+  }, [bookings, selectedFacility, driverIdsAtClinic]);
 
   const inboundMissions = useMemo(() => {
     if (!selectedFacility) return [];
@@ -460,16 +533,25 @@ const FacilityPortal = () => {
     setDispatchPreviewLocation(null);
   };
 
+  const closeScheduledModal = () => {
+    setShowScheduledModal(false);
+    setScheduledPreviewLocation(null);
+  };
+
   const hudTitle =
-    view === 'availability'
-      ? 'Clinic location'
-      : view === 'incoming'
-        ? 'Incoming'
-        : view === 'records'
-          ? 'Records'
-          : view === 'fleet'
-            ? 'Live fleet'
-            : 'Drivers';
+    view === 'settings'
+      ? 'Settings'
+      : view === 'beds'
+        ? 'Beds'
+        : view === 'scheduled'
+          ? 'Scheduled'
+          : view === 'incoming'
+            ? 'Mission queue'
+            : view === 'records'
+              ? 'Mission archive'
+              : view === 'fleet'
+                ? 'Live fleet'
+                : 'Driver roster';
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -495,7 +577,7 @@ const FacilityPortal = () => {
   if (booting || !isLoaded) {
     return (
       <div className="loading-screen">
-        <h2>INITIALIZING...</h2>
+        <h2>Loading…</h2>
       </div>
     );
   }
@@ -504,7 +586,7 @@ const FacilityPortal = () => {
     <div className="app-shell facility-portal-map-shell">
       <div className="map-background">
         <MapComponent
-          previewLocation={dispatchPreviewLocation}
+          previewLocation={dispatchPreviewLocation || scheduledPreviewLocation}
           mapFocus={mapFocus}
           showHospitals
           showTraffic={trafficEnabled}
@@ -545,11 +627,27 @@ const FacilityPortal = () => {
               <span className="brand-mark">
                 <HeaderLocationIcon />
               </span>
-              <h2 className="banner-title">Clinic Portal</h2>
+              <div className="banner-title-stack">
+                <h2 className="banner-title">Operations</h2>
+                {selectedFacility?.name ? (
+                  <p className="banner-facility-name" title={selectedFacility.name}>
+                    {selectedFacility.name}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div className="banner-right">
-              <button type="button" className="status-pill">
-                System Online
+              {selectedFacility?.id ? (
+                <ClinicNotificationBell
+                  clinicId={String(selectedFacility.id)}
+                  driverIds={driverIdsAtClinic}
+                  onNavigate={(meta) => {
+                    if (meta?.view) setView(meta.view);
+                  }}
+                />
+              ) : null}
+              <button type="button" className="status-pill status-pill--subtle">
+                Live
               </button>
               <div className="profile-group">
                 <div className="avatar-circle">FP</div>
@@ -562,42 +660,15 @@ const FacilityPortal = () => {
           <nav className="side-nav">
             <div className="nav-top-group">
               <div
-                className={`nav-link ${view === 'availability' ? 'active' : ''}`}
-                onClick={() => setView('availability')}
-                title="Clinic location"
-                role="button"
-              >
-                <SideIcon active={view === 'availability'} path="M12 6v12M7 11h10M5 5h14v14H5z" />
-              </div>
-              <div
                 className={`nav-link ${view === 'incoming' ? 'active' : ''}`}
                 onClick={() => setView('incoming')}
-                title="Incoming"
+                title="Mission queue"
                 role="button"
               >
                 <SideIcon
                   active={view === 'incoming'}
                   path="M3 11.5h18M6.5 15.5h11M8 19h8M7 11.5V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4.5"
                 />
-              </div>
-              <div
-                className={`nav-link ${view === 'records' ? 'active' : ''}`}
-                onClick={() => setView('records')}
-                title="Completed records"
-                role="button"
-              >
-                <SideIcon
-                  active={view === 'records'}
-                  path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </div>
-              <div
-                className="nav-link nav-dispatch"
-                onClick={() => setShowDispatchModal(true)}
-                title="New dispatch"
-                role="button"
-              >
-                <SideIcon active={false} path="M12 5v14M5 12h14" />
               </div>
               <div
                 className={`nav-link ${view === 'fleet' ? 'active' : ''}`}
@@ -621,9 +692,44 @@ const FacilityPortal = () => {
                 />
               </div>
               <div
+                className={`nav-link ${view === 'records' ? 'active' : ''}`}
+                onClick={() => setView('records')}
+                title="Mission archive"
+                role="button"
+              >
+                <SideIcon
+                  active={view === 'records'}
+                  path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
+              </div>
+              <div
+                className="nav-link nav-dispatch"
+                onClick={() => setShowDispatchModal(true)}
+                title="New dispatch"
+                role="button"
+              >
+                <SideIcon active={false} path="M12 5v14M5 12h14" />
+              </div>
+              <div
+                className={`nav-link ${view === 'scheduled' ? 'active' : ''}`}
+                onClick={() => setView('scheduled')}
+                title="Scheduled transport"
+                role="button"
+              >
+                <ScheduledNavIcon active={view === 'scheduled'} />
+              </div>
+              <div
+                className={`nav-link ${view === 'beds' ? 'active' : ''}`}
+                onClick={() => setView('beds')}
+                title="Beds"
+                role="button"
+              >
+                <BedNavIcon active={view === 'beds'} />
+              </div>
+              <div
                 className={`nav-link ${view === 'drivers' ? 'active' : ''}`}
                 onClick={() => setView('drivers')}
-                title="Manage drivers"
+                title="Driver roster"
                 role="button"
               >
                 <SideIcon
@@ -634,6 +740,14 @@ const FacilityPortal = () => {
               </div>
             </div>
             <div className="nav-bottom-group">
+              <div
+                className={`nav-link ${view === 'settings' ? 'active' : ''}`}
+                onClick={() => setView('settings')}
+                title="Settings"
+                role="button"
+              >
+                <SettingsNavIcon active={view === 'settings'} />
+              </div>
               <div className="nav-link" title="Sign out" onClick={logout} role="button">
                 <SideIcon path="M9 7l-5 5 5 5M4 12h12M15 5h5v14h-5" />
               </div>
@@ -645,11 +759,11 @@ const FacilityPortal = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
                   <h1 className="hud-title">{hudTitle}</h1>
-                  {(view === 'availability' || view === 'incoming') && (
+                  {view === 'incoming' && (
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
                       (
                       <span style={{ color: '#10b981' }}>{inboundMissions.length}</span>
-                      <span style={{ color: '#64748b' }}> inbound</span>)
+                      <span style={{ color: '#64748b' }}> open</span>)
                     </span>
                   )}
                   {view === 'fleet' && (
@@ -668,6 +782,38 @@ const FacilityPortal = () => {
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
                       (<span style={{ color: '#64748b' }}>{drivers.length}</span>
                       <span style={{ color: '#64748b' }}> / {MAX_CLINIC_DRIVER_ACCOUNTS}</span>)
+                    </span>
+                  )}
+                  {view === 'scheduled' && (
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
+                      (
+                      <span style={{ color: scheduledBookingCount > 0 ? '#10b981' : '#64748b' }}>
+                        {scheduledBookingCount}
+                      </span>
+                      <span style={{ color: '#64748b' }}> planned</span>)
+                    </span>
+                  )}
+                  {view === 'beds' && selectedFacility && (
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748b' }}>
+                      (
+                      {Number(selectedFacility.bed_capacity) > 0 ? (
+                        <>
+                          <span style={{ color: '#10b981' }}>
+                            {Math.max(
+                              0,
+                              Number(selectedFacility.bed_capacity) -
+                                Math.min(
+                                  Number(selectedFacility.beds_occupied) || 0,
+                                  Number(selectedFacility.bed_capacity)
+                                )
+                            )}
+                          </span>
+                          <span style={{ color: '#64748b' }}> free</span>
+                        </>
+                      ) : (
+                        <span style={{ color: '#64748b' }}>not set</span>
+                      )}
+                      )
                     </span>
                   )}
                 </div>
@@ -752,35 +898,55 @@ const FacilityPortal = () => {
                 </div>
               )}
 
-              {view === 'availability' && (
+              {view === 'scheduled' && (
+                <ScheduledBookingsPanel
+                  clinicId={selectedFacilityId}
+                  bookings={bookings}
+                  drivers={drivers}
+                  onBookNew={() => setShowScheduledModal(true)}
+                  onActivate={() => {
+                    fetchAll();
+                    showToast('success', 'Scheduled booking updated.');
+                  }}
+                  onCancel={() => {
+                    fetchAll();
+                    showToast('success', 'Scheduled booking cancelled.');
+                  }}
+                />
+              )}
+
+              {view === 'beds' && (
                 <div className="fleet-list-container">
-                  <div className="unit-card-new" style={{ cursor: 'default' }}>
-                    <p className="facility-section-subtitle" style={{ marginTop: 0 }}>
-                      Search your clinic address to set the map pin (same as dispatch address search).
-                    </p>
-                    <form onSubmit={saveClinicLocation}>
-                      <div className="input-group">
-                        <label className="field-label">Your clinic</label>
-                        <div className="nearest-unit-box" style={{ marginBottom: '14px' }} aria-readonly="true">
-                          {selectedFacility?.name ?? '—'}
-                        </div>
+                  {selectedFacilityId ? (
+                    <section className="settings-panel-card settings-beds-panel">
+                      <header className="settings-panel-card__header">
+                        <h2 className="settings-panel-card__title">Beds</h2>
+                      </header>
+                      <div className="settings-panel-card__body">
+                    <BedAvailabilityPanel
+                      clinicId={selectedFacilityId}
+                      bedCapacity={selectedFacility?.bed_capacity ?? 0}
+                      bedsOccupied={selectedFacility?.beds_occupied ?? 0}
+                      disabled={false}
+                      showToast={showToast}
+                      onSaved={fetchAll}
+                    />
                       </div>
-                      <div className="input-group">
-                        <label className="field-label">Clinic address</label>
-                        <ClinicAddressField
-                          key={selectedFacilityId}
-                          inputClassName="modern-input"
-                          value={clinicLocationEdit}
-                          onPlaceSelected={setClinicLocationEdit}
-                          placeholder="Search clinic address…"
-                          disabled={saving}
-                        />
-                      </div>
-                      <button type="submit" className="confirm-btn" disabled={saving} style={{ marginTop: 0 }}>
-                        {saving ? 'Saving...' : 'Save'}
-                      </button>
-                    </form>
-                  </div>
+                    </section>
+                  ) : null}
+                </div>
+              )}
+
+              {view === 'settings' && (
+                <div className="fleet-list-container">
+                  <SettingsFacilitySite
+                    facilityName={selectedFacility?.name}
+                    clinicLocationEdit={clinicLocationEdit}
+                    onPlaceSelected={setClinicLocationEdit}
+                    onSubmit={saveClinicLocation}
+                    saving={saving}
+                    inputKey={selectedFacilityId}
+                  />
                 </div>
               )}
 
@@ -833,12 +999,41 @@ const FacilityPortal = () => {
             </header>
             <div className="modal-body modal-scroll-hide">
               <CreateBooking
+                clinicId={selectedFacilityId || null}
                 drivers={drivers}
                 onLocationSelected={setDispatchPreviewLocation}
                 onBookingCreated={() => {
                   closeDispatchModal();
                   fetchAll();
                   showToast('success', 'Dispatch sent to ambulance unit.');
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showScheduledModal && (
+        <div className="modal-overlay" role="presentation" onClick={closeScheduledModal}>
+          <div className="modal-card modal-card--dispatch" role="dialog" aria-labelledby="scheduled-modal-title" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h3 className="modal-header-title" id="scheduled-modal-title">
+                Scheduled transport
+              </h3>
+              <button type="button" className="close-btn-modern" onClick={closeScheduledModal} aria-label="Close">
+                &times;
+              </button>
+            </header>
+            <div className="modal-body modal-scroll-hide">
+              <CreateScheduledBooking
+                clinicId={selectedFacilityId}
+                drivers={drivers}
+                onLocationSelected={setScheduledPreviewLocation}
+                onBookingCreated={() => {
+                  closeScheduledModal();
+                  fetchAll();
+                  setView('scheduled');
+                  showToast('success', 'Scheduled booking saved.');
                 }}
               />
             </div>

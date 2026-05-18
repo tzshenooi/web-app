@@ -35,13 +35,34 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 /* --- HEADER --- */
 .banner-anchor { padding: 12px 20px; }
 .main-banner {
-  height: 64px; background: var(--banner-dark); backdrop-filter: blur(12px);
+  min-height: 64px;
+  height: auto;
+  background: var(--banner-dark); backdrop-filter: blur(12px);
   border-radius: 16px; display: flex; align-items: center;
-  justify-content: space-between; padding: 0 24px; color: white;
+  justify-content: space-between; padding: 10px 24px; color: white;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
-.banner-left { display: flex; align-items: center; gap: 12px; }
+.banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .banner-title { font-size: 1.1rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+.banner-title-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.banner-facility-name {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.72);
+  letter-spacing: 0.02em;
+  max-width: min(280px, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .banner-right { display: flex; align-items: center; gap: 20px; }
 .profile-group { border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 20px; }
@@ -94,6 +115,14 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   flex-direction: column;
   align-items: center;
   gap: 20px; /* This is the specific gap between your icons */
+  width: 100%;
+}
+
+.nav-bottom-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   width: 100%;
 }
 .nav-link {
@@ -231,6 +260,13 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   border-left-color: var(--accent-blue);
 } */
 .status-pill { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+
+.status-pill.status-pill--subtle {
+  cursor: default;
+  background: rgba(148, 163, 184, 0.14);
+  color: rgba(241, 245, 249, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
 
 /* 3. Status Pill Colors for Hospitals */
 .status-pill.available {
@@ -873,5 +909,164 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   color: #475569;
   font-weight: 400;
   word-break: break-word;
+}
+
+/* --- Settings panel (facility site, beds) --- */
+.settings-panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.settings-panel-card__header {
+  padding: 14px 16px 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.settings-panel-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.settings-panel-card__meta {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-panel-card__body {
+  padding: 14px 16px 16px;
+}
+
+.settings-field {
+  margin-bottom: 10px;
+}
+
+.settings-field__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.settings-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.settings-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.settings-pin-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.settings-pin-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.settings-pin-chip__coords {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #166534;
+}
+
+.settings-pin-hint {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.settings-pin-hint--muted {
+  color: #94a3b8;
+}
+
+.settings-save-btn {
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.settings-save-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.settings-save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.settings-beds-panel .unit-card-new {
+  margin-top: 0;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+.settings-beds-panel .modern-input {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.settings-beds-panel .confirm-btn {
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-transform: none;
+  margin-top: 4px;
 }
 

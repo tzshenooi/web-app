@@ -4,8 +4,7 @@ import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
 
 /**
  * Google Places address search → formatted address + lat/lng for clinics.
- * @param {{ address?: string, latitude?: number, longitude?: number } | null} value
- * @param {(loc: { address: string, latitude: number, longitude: number }) => void} onPlaceSelected
+ * @param {'full'|'pin-only'|'none'} previewMode — full: address + coords; pin-only: coords chip only; none: hidden
  */
 const ClinicAddressField = ({
   value,
@@ -14,6 +13,7 @@ const ClinicAddressField = ({
   placeholder = 'Search clinic address…',
   disabled = false,
   inputId,
+  previewMode = 'full',
 }) => {
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -22,6 +22,16 @@ const ClinicAddressField = ({
       </p>
     );
   }
+
+  const hasCoords =
+    value?.address &&
+    Number.isFinite(value.latitude) &&
+    Number.isFinite(value.longitude);
+
+  const inputStyle =
+    inputClassName === 'modern-input' || inputClassName === 'settings-input'
+      ? { width: '100%', marginBottom: 0 }
+      : undefined;
 
   return (
     <>
@@ -45,12 +55,12 @@ const ClinicAddressField = ({
         className={inputClassName}
         placeholder={placeholder}
         disabled={disabled}
-        style={inputClassName === 'modern-input' ? { width: '100%', marginBottom: 0 } : undefined}
+        style={inputStyle}
       />
-      {value?.address ? (
+      {previewMode === 'full' && value?.address ? (
         <p className="facility-muted" style={{ marginTop: 8, fontSize: '0.85rem', lineHeight: 1.4 }}>
           {value.address}
-          {Number.isFinite(value.latitude) && Number.isFinite(value.longitude) ? (
+          {hasCoords ? (
             <>
               <br />
               <span style={{ opacity: 0.85 }}>
@@ -59,6 +69,14 @@ const ClinicAddressField = ({
             </>
           ) : null}
         </p>
+      ) : null}
+      {previewMode === 'pin-only' && hasCoords ? (
+        <div className="settings-pin-chip" role="status">
+          <span className="settings-pin-chip__dot" aria-hidden="true" />
+          <span className="settings-pin-chip__coords">
+            {Number(value.latitude).toFixed(5)}, {Number(value.longitude).toFixed(5)}
+          </span>
+        </div>
       ) : null}
     </>
   );

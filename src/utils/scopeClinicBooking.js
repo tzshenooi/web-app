@@ -6,5 +6,12 @@ export function scopeBookingToClinic(booking, clinicId, driverIdsAtClinic = []) 
   if (booking.destination_clinic_id && String(booking.destination_clinic_id) === cid) return true;
   if (booking.driver_id && driverIdsAtClinic.includes(booking.driver_id)) return true;
   if (booking.patient_report_id && !booking.assigned_clinic_id) return true;
+  // Pilot: scheduled rows without clinic id still show for the logged-in facility.
+  if (
+    (booking.status === 'Scheduled' || booking.booking_kind === 'scheduled') &&
+    !booking.assigned_clinic_id
+  ) {
+    return true;
+  }
   return false;
 }
