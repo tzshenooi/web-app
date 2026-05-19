@@ -175,7 +175,7 @@ const MissionClinicalCard = ({
                   />
                   <button
                     type="button"
-                    className="mission-clinical-unknown-btn"
+                    className="confirm-btn confirm-btn--outline confirm-btn--sm"
                     onClick={() => setPatientId(UNKNOWN_PATIENT_ID)}
                   >
                     Mark as unknown
@@ -271,7 +271,7 @@ const MissionClinicalCard = ({
               </section>
             )}
 
-            <button type="button" className="mission-clinical-save" disabled={saving} onClick={save}>
+            <button type="button" className="confirm-btn mission-clinical-save" disabled={saving} onClick={save}>
               {saving ? 'Saving…' : showRoutingFields && !showIntakeFields ? 'Save destination' : 'Save record'}
             </button>
           </>

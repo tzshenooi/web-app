@@ -303,6 +303,14 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   gap: 12px; /* 🟢 This creates the uniform gap between each driver row */
 }
 
+.scheduled-panel__actions {
+  margin-bottom: 4px;
+}
+
+.scheduled-panel__book-btn {
+  margin-top: 0;
+}
+
 .unit-card-new.expanded { background: #f8fafc; }
 .unit-card-new.priority-critical.expanded { background: #fff5f5; }
 .unit-card-new.priority-high.expanded { background: #fffbf0; }
@@ -546,7 +554,92 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 
 .field-label { display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
 .modern-input, .modern-select { width: 100%; padding: 14px 18px; border-radius: 15px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 1rem; margin-bottom: 22px; outline: none; }
-.confirm-btn { width: 100%; padding: 18px; background: var(--accent-blue); color: white; border: none; border-radius: 18px; font-weight: 800; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; margin-top: 15px; }
+/* Unified primary actions — clinic HUD, modals, settings, beds */
+.confirm-btn,
+.mission-clinical-save,
+.settings-save-btn,
+.settings-btn--primary {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--accent-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.confirm-btn:hover:not(:disabled),
+.mission-clinical-save:hover:not(:disabled),
+.settings-save-btn:hover:not(:disabled),
+.settings-btn--primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.confirm-btn:disabled,
+.mission-clinical-save:disabled,
+.settings-save-btn:disabled,
+.settings-btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.confirm-btn--no-margin {
+  margin-top: 0;
+}
+
+.confirm-btn--outline {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  text-transform: uppercase;
+}
+
+.confirm-btn--outline:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.confirm-btn--danger.confirm-btn--outline {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.confirm-btn--danger.confirm-btn--outline:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.confirm-btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.confirm-btn-row .confirm-btn {
+  flex: 1;
+  min-width: 120px;
+  margin-top: 0;
+}
+
+.confirm-btn--sm {
+  width: auto;
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  border-radius: 10px;
+}
 
 .nearest-unit-box {
   width: 100%;
@@ -728,30 +821,7 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
 }
 
 .mission-clinical-save {
-  display: block;
-  width: 100%;
   margin-top: 16px;
-  padding: 12px 16px;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #ffffff;
-  background: #2563eb;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  transition: background 0.15s, transform 0.1s;
-}
-
-.mission-clinical-save:hover:not(:disabled) {
-  background: #1d4ed8;
-}
-
-.mission-clinical-save:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
 }
 
 .mission-clinical-readonly {
@@ -911,32 +981,217 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   word-break: break-word;
 }
 
-/* --- Settings panel (facility site, beds) --- */
-.settings-panel-card {
+/* --- Settings (hub, sub-pages, cards) --- */
+.hud-panel--settings {
+  border-color: #e8edf3;
+}
+
+.hud-panel--settings .hud-scroll-hide {
+  padding: 0;
+}
+
+.settings-page {
+  padding: 18px 16px 22px;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* Hub */
+.settings-hub__header {
+  margin-bottom: 18px;
+}
+
+.settings-hub__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.settings-hub__subtitle {
+  margin: 5px 0 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.settings-hub__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e8edf3;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   overflow: hidden;
 }
 
-.settings-panel-card__header {
-  padding: 14px 16px 12px;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+.settings-hub__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  border: none;
   border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
+.settings-hub__item:last-child {
+  border-bottom: none;
+}
+
+.settings-hub__item:hover {
+  background: #f8fafc;
+}
+
+.settings-hub__item:active {
+  background: #f1f5f9;
+}
+
+.settings-hub__item:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+.settings-hub__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.12);
+}
+
+.settings-hub__chevron {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+
+.settings-hub__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-hub__item-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.settings-hub__item-desc {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+/* Sub-page */
+.settings-subpage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.settings-subpage__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin: 0 0 14px;
+  padding: 6px 10px 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.settings-subpage__back:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.settings-subpage__head {
+  margin-bottom: 14px;
+}
+
+.settings-subpage__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.settings-subpage__desc {
+  margin: 5px 0 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.settings-subpage__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Cards (shared) */
+.settings-card,
+.settings-panel-card {
+  background: #ffffff;
+  border: 1px solid #e8edf3;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.settings-card--flat,
+.settings-card--flat.settings-panel-card {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.settings-card__header,
+.settings-panel-card__header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafbfc;
+}
+
+.settings-card__title,
 .settings-panel-card__title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.01em;
 }
 
+.settings-card__meta,
 .settings-panel-card__meta {
-  margin: 6px 0 0;
-  font-size: 0.8rem;
+  margin: 5px 0 0;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #64748b;
   line-height: 1.35;
@@ -945,8 +1200,144 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   white-space: nowrap;
 }
 
+.settings-card__body,
 .settings-panel-card__body {
-  padding: 14px 16px 16px;
+  padding: 16px;
+}
+
+.settings-card__facility-name {
+  margin: 0 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.35;
+}
+
+/* Drivers */
+.settings-drivers-count {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.settings-drivers-count strong {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.settings-driver-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-driver-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #eef2f6;
+  background: #fafbfc;
+}
+
+.settings-driver-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.settings-driver-card__avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1d4ed8;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.settings-driver-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-driver-card__name {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.settings-driver-card__email {
+  margin: 3px 0 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.settings-driver-badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.settings-driver-badge--available {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.settings-driver-badge--busy {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.settings-driver-badge--offline {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.settings-empty {
+  padding: 20px 12px;
+  text-align: center;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+}
+
+.settings-empty__title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.settings-empty__text {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .settings-field {
@@ -1013,37 +1404,47 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   color: #166534;
 }
 
+.settings-hint,
 .settings-pin-hint {
   margin: 0 0 12px;
   font-size: 0.75rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #64748b;
 }
 
+.settings-hint--muted,
 .settings-pin-hint--muted {
   color: #94a3b8;
 }
 
-.settings-save-btn {
-  width: 100%;
-  padding: 11px 14px;
-  border: none;
+.settings-hint--footer {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
   border-radius: 10px;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  border: 1px solid transparent;
+  box-sizing: border-box;
 }
 
-.settings-save-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+.settings-btn--block {
+  width: 100%;
 }
 
-.settings-save-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+/* settings-btn--primary / settings-save-btn: see unified .confirm-btn block above */
+
+.settings-btn--danger.confirm-btn--outline {
+  margin-top: 10px;
 }
 
 .settings-beds-panel .unit-card-new {
@@ -1061,12 +1462,8 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   font-size: 0.9rem;
 }
 
-.settings-beds-panel .confirm-btn {
-  padding: 11px 14px;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  text-transform: none;
-  margin-top: 4px;
+.settings-beds-panel .confirm-btn,
+.settings-beds-panel .settings-save-btn {
+  margin-top: 8px;
 }
 

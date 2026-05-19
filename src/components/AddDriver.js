@@ -116,8 +116,8 @@ const AddDriver = ({ onComplete, baseClinicId = null, defaultLat = null, default
           <input type="password" className="modern-input" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••" />
         </div>
 
-        <button type="submit" className="confirm-btn" style={{ background: '#2c3e50' }} disabled={loading}>
-          {loading ? 'REGISTERING...' : 'ADD DRIVER LOGIN'}
+        <button type="submit" className="confirm-btn" disabled={loading}>
+          {loading ? 'Registering…' : 'Add driver login'}
         </button>
       </form>
     </div>

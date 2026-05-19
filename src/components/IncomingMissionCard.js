@@ -54,7 +54,7 @@ const IncomingMissionCard = ({ mission, onDispatch, onSaved }) => {
             <button
               type="button"
               className="confirm-btn"
-              style={{ marginTop: '10px', width: '100%' }}
+              style={{ marginTop: 10 }}
               onClick={() => onDispatch(mission)}
             >
               Send ambulance

@@ -16,6 +16,9 @@ import IncomingMissionCard from './IncomingMissionCard';
 import ClinicRecordsArchive from './ClinicRecordsArchive';
 import BedAvailabilityPanel from './BedAvailabilityPanel';
 import SettingsFacilitySite from './SettingsFacilitySite';
+import SettingsDriverRoster from './SettingsDriverRoster';
+import SettingsHub from './SettingsHub';
+import SettingsSubpage from './SettingsSubpage';
 import ClinicNotificationBell from './ClinicNotificationBell';
 import { scopeBookingToClinic } from '../utils/scopeClinicBooking';
 import { syncPatientReportClinical } from '../utils/syncPatientReportClinical';
@@ -128,6 +131,8 @@ const FacilityPortal = () => {
   const [showScheduledModal, setShowScheduledModal] = useState(false);
   const [dispatchPreviewLocation, setDispatchPreviewLocation] = useState(null);
   const [scheduledPreviewLocation, setScheduledPreviewLocation] = useState(null);
+  /** Settings sub-page: null (hub), 'location', or 'drivers'. */
+  const [settingsSection, setSettingsSection] = useState(null);
   const initialPassRef = useRef(true);
   const toastTimerRef = useRef(null);
 
@@ -316,6 +321,7 @@ const FacilityPortal = () => {
       if (firstOnMission) setTrackedDriverId(firstOnMission.id);
     }
     if (view === 'settings' || view === 'beds' || view === 'scheduled') setTrackedDriverId(null);
+    if (view !== 'settings') setSettingsSection(null);
   }, [view, drivers, bookings, trackedDriverId, activeMissionStatuses]);
 
   const showToast = (type, text) => {
@@ -540,7 +546,11 @@ const FacilityPortal = () => {
 
   const hudTitle =
     view === 'settings'
-      ? 'Settings'
+      ? settingsSection === 'location'
+        ? 'Facility location'
+        : settingsSection === 'drivers'
+          ? 'Driver accounts'
+          : 'Settings'
       : view === 'beds'
         ? 'Beds'
         : view === 'scheduled'
@@ -742,7 +752,10 @@ const FacilityPortal = () => {
             <div className="nav-bottom-group">
               <div
                 className={`nav-link ${view === 'settings' ? 'active' : ''}`}
-                onClick={() => setView('settings')}
+                onClick={() => {
+                  setView('settings');
+                  setSettingsSection(null);
+                }}
                 title="Settings"
                 role="button"
               >
@@ -754,7 +767,8 @@ const FacilityPortal = () => {
             </div>
           </nav>
 
-          <main className="hud-panel">
+          <main className={`hud-panel${view === 'settings' ? ' hud-panel--settings' : ''}`}>
+            {view !== 'settings' && (
             <header className="hud-header">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
@@ -819,6 +833,7 @@ const FacilityPortal = () => {
                 </div>
               </div>
             </header>
+            )}
 
             <div className="hud-scroll-hide">
               {view === 'records' && (
@@ -844,35 +859,8 @@ const FacilityPortal = () => {
               {view === 'drivers' && (
                 <div className="fleet-list-container">
                   <p className="facility-section-subtitle" style={{ marginTop: 0 }}>
-                    See who can log into the ambulance app for this clinic. Remove someone who has left—they must have no
-                    open mission first.
+                    Register who can log into the ambulance app for this clinic. To remove a driver, open Settings.
                   </p>
-                  {drivers.length === 0 ? (
-                    <p style={{ color: '#64748b', textAlign: 'center', marginTop: '12px', fontSize: '0.9rem' }}>
-                      No drivers yet. Use the form below — auth and driver profile are linked automatically.
-                    </p>
-                  ) : (
-                    drivers.map((d) => (
-                      <div key={d.id} className="unit-card-new" style={{ cursor: 'default', marginBottom: '10px' }}>
-                        <div className="card-main-content" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px', width: '100%' }}>
-                          <strong className="unit-name-text">{d.name || 'Driver'}</strong>
-                          <span className="unit-sub-text">{d.email || 'No email on file'}</span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', width: '100%' }}>
-                            <span className="facility-pill neutral">{d.status || 'Unknown'}</span>
-                            <button
-                              type="button"
-                              className="status-pill full"
-                              style={{ cursor: 'pointer', marginLeft: 'auto' }}
-                              disabled={removingDriverId === d.id}
-                              onClick={() => removeDriverFromClinic(d)}
-                            >
-                              {removingDriverId === d.id ? 'Removing…' : 'Remove driver'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
 
                   {drivers.length < MAX_CLINIC_DRIVER_ACCOUNTS ? (
                     <div className="unit-card-new" style={{ cursor: 'default', marginTop: '14px' }}>
@@ -892,7 +880,7 @@ const FacilityPortal = () => {
                     </div>
                   ) : (
                     <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '14px' }}>
-                      Roster full ({MAX_CLINIC_DRIVER_ACCOUNTS} drivers). Remove someone to add another.
+                      Roster full ({MAX_CLINIC_DRIVER_ACCOUNTS} drivers). Remove someone in Settings to add another.
                     </p>
                   )}
                 </div>
@@ -938,15 +926,42 @@ const FacilityPortal = () => {
               )}
 
               {view === 'settings' && (
-                <div className="fleet-list-container">
-                  <SettingsFacilitySite
-                    facilityName={selectedFacility?.name}
-                    clinicLocationEdit={clinicLocationEdit}
-                    onPlaceSelected={setClinicLocationEdit}
-                    onSubmit={saveClinicLocation}
-                    saving={saving}
-                    inputKey={selectedFacilityId}
-                  />
+                <div className="settings-page">
+                  {!settingsSection ? (
+                    <SettingsHub
+                      onSelectLocation={() => setSettingsSection('location')}
+                      onSelectDrivers={() => setSettingsSection('drivers')}
+                    />
+                  ) : (
+                    <SettingsSubpage
+                      title={settingsSection === 'location' ? 'Facility Location' : 'Driver Accounts'}
+                      description={
+                        settingsSection === 'location'
+                          ? 'Update your facility site and map coordinates'
+                          : 'Remove drivers who no longer work at your clinic'
+                      }
+                      onBack={() => setSettingsSection(null)}
+                    >
+                      {settingsSection === 'location' ? (
+                        <SettingsFacilitySite
+                          compact
+                          facilityName={selectedFacility?.name}
+                          clinicLocationEdit={clinicLocationEdit}
+                          onPlaceSelected={setClinicLocationEdit}
+                          onSubmit={saveClinicLocation}
+                          saving={saving}
+                          inputKey={selectedFacilityId}
+                        />
+                      ) : (
+                        <SettingsDriverRoster
+                          drivers={drivers}
+                          removingDriverId={removingDriverId}
+                          onRemoveDriver={removeDriverFromClinic}
+                          maxDrivers={MAX_CLINIC_DRIVER_ACCOUNTS}
+                        />
+                      )}
+                    </SettingsSubpage>
+                  )}
                 </div>
               )}
 

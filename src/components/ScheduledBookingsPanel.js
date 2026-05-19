@@ -121,8 +121,8 @@ const ScheduledBookingsPanel = ({
 
   return (
     <div className="fleet-list-container">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button type="button" className="confirm-btn" style={{ width: 'auto', padding: '10px 18px' }} onClick={onBookNew}>
+      <div className="scheduled-panel__actions">
+        <button type="button" className="confirm-btn scheduled-panel__book-btn" onClick={onBookNew}>
           + Book transport
         </button>
       </div>
@@ -191,8 +191,8 @@ const ScheduledBookingsPanel = ({
                       </select>
                       <button
                         type="button"
-                        className="confirm-btn"
-                        style={{ marginTop: 8, width: '100%' }}
+                        className="confirm-btn confirm-btn--no-margin"
+                        style={{ marginTop: 8 }}
                         disabled={busy}
                         onClick={() => handleAssignDriver(b)}
                       >
@@ -201,12 +201,11 @@ const ScheduledBookingsPanel = ({
                     </div>
                   ) : null}
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div className="confirm-btn-row">
                     {b.driver_id ? (
                       <button
                         type="button"
                         className="confirm-btn"
-                        style={{ flex: 1, minWidth: 140 }}
                         disabled={busy}
                         onClick={() => handleStartMission(b)}
                       >
@@ -215,16 +214,7 @@ const ScheduledBookingsPanel = ({
                     ) : null}
                     <button
                       type="button"
-                      style={{
-                        flex: 1,
-                        minWidth: 100,
-                        padding: '14px 12px',
-                        borderRadius: 14,
-                        border: '1px solid #e2e8f0',
-                        background: '#fff',
-                        fontWeight: 700,
-                        cursor: busy ? 'wait' : 'pointer',
-                      }}
+                      className="confirm-btn confirm-btn--outline"
                       disabled={busy}
                       onClick={() => handleCancel(b)}
                     >

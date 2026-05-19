@@ -126,7 +126,7 @@ export default function BedAvailabilityPanel({ clinicId, bedCapacity, bedsOccupi
             {available} free
           </p>
         )}
-        <button type="submit" className="settings-save-btn" disabled={disabled || saving} style={{ marginTop: '12px' }}>
+        <button type="submit" className="confirm-btn" disabled={disabled || saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </form>
