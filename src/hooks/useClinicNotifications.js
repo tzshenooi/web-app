@@ -64,13 +64,13 @@ export function useClinicNotifications(clinicId, driverIds = []) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'patient_reports' },
         (payload) => {
-          const row = payload.newRecord || {};
+          const row = payload.new || {};
           addNotification({
             key: `report-${row.id}`,
             type: 'emergency',
             title: 'New patient report',
-            body: row.patient_name
-              ? `${row.patient_name} needs assistance`
+            body: row.reporter_name
+              ? `${row.reporter_name} reported an incident`
               : 'Inbound emergency report',
             meta: { view: 'incoming', reportId: row.id },
           });
@@ -80,7 +80,7 @@ export function useClinicNotifications(clinicId, driverIds = []) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'bookings' },
         (payload) => {
-          const b = payload.newRecord || {};
+          const b = payload.new || {};
           if (!scoped(b)) return;
           const isReport = Boolean(b.patient_report_id);
           addNotification({
@@ -96,8 +96,8 @@ export function useClinicNotifications(clinicId, driverIds = []) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'bookings' },
         (payload) => {
-          const b = payload.newRecord || {};
-          const old = payload.oldRecord || {};
+          const b = payload.new || {};
+          const old = payload.old || {};
           if (!scoped(b)) return;
           if (old.status === b.status) return;
           addNotification({

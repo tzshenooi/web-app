@@ -356,6 +356,7 @@ create policy drivers_select_patient_assigned on public.drivers
 alter publication supabase_realtime add table public.bookings;
 alter publication supabase_realtime add table public.drivers;
 alter publication supabase_realtime add table public.clinics;
+alter publication supabase_realtime add table public.patient_reports;
 
 
 -- ---------------------------------------------------------------------------
