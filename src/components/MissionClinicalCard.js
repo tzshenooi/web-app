@@ -10,6 +10,10 @@ import {
   toDatetimeLocalValue,
   UNKNOWN_PATIENT_ID,
 } from '../constants/missionClinical';
+import HospitalDestinationField from './HospitalDestinationField';
+import {
+  isHospitalDestinationType,
+} from '../utils/clinicRouting';
 
 function cardHint({
   intakeOnly,
@@ -53,20 +57,86 @@ const MissionClinicalCard = ({
   onSaved,
 }) => {
   const [patientId, setPatientId] = useState('');
-  const [hospitalName, setHospitalName] = useState('');
   const [destinationType, setDestinationType] = useState('');
   const [medicationEligible, setMedicationEligible] = useState(true);
   const [requestedAtLocal, setRequestedAtLocal] = useState('');
   const [departedAtLocal, setDepartedAtLocal] = useState('');
   const [pickedUpAtLocal, setPickedUpAtLocal] = useState('');
   const [dischargeAtLocal, setDischargeAtLocal] = useState('');
+  const [hospitalPlace, setHospitalPlace] = useState(null);
+  const [clinicOptions, setClinicOptions] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!showRoutingFields) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('clinics')
+        .select('id, name, latitude, longitude, address, specialty')
+        .order('name');
+      if (!cancelled && !error) setClinicOptions(data || []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showRoutingFields]);
+
+  useEffect(() => {
+    if (!booking?.destination_clinic_id || clinicOptions.length === 0) return;
+    const clinic = clinicOptions.find((c) => String(c.id) === String(booking.destination_clinic_id));
+    if (!clinic) return;
+    const lat = Number(clinic.latitude ?? clinic.lat);
+    const lng = Number(clinic.longitude ?? clinic.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setHospitalPlace({
+      name: clinic.name,
+      address: clinic.address || clinic.name,
+      latitude: lat,
+      longitude: lng,
+      clinicId: clinic.id,
+      source: 'registered',
+    });
+  }, [booking?.destination_clinic_id, clinicOptions]);
 
   useEffect(() => {
     if (!booking) return;
     setPatientId(booking.patient_id ?? '');
-    setHospitalName(booking.hospital_name ?? '');
     setDestinationType(booking.destination_type ?? '');
+
+    const lat = Number(booking.destination_latitude);
+    const lng = Number(booking.destination_longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const clinicId = booking.destination_clinic_id ? String(booking.destination_clinic_id) : null;
+
+    if (clinicId && hasCoords && booking.hospital_name) {
+      setHospitalPlace({
+        name: booking.hospital_name,
+        address: booking.hospital_name,
+        latitude: lat,
+        longitude: lng,
+        clinicId,
+        source: 'registered',
+      });
+    } else if (hasCoords && booking.hospital_name) {
+      setHospitalPlace({
+        name: booking.hospital_name,
+        address: booking.hospital_name,
+        latitude: lat,
+        longitude: lng,
+        clinicId: clinicId || null,
+        source: 'google',
+      });
+    } else if (booking.hospital_name) {
+      setHospitalPlace({
+        name: booking.hospital_name,
+        address: booking.hospital_name,
+        clinicId,
+        source: clinicId ? 'registered' : 'google',
+      });
+    } else {
+      setHospitalPlace(null);
+    }
     const med =
       booking.medication_service_eligible ??
       medicationDefaultForDestination(booking.destination_type);
@@ -81,6 +151,7 @@ const MissionClinicalCard = ({
     setDestinationType(value);
     const def = medicationDefaultForDestination(value);
     if (def !== null) setMedicationEligible(def);
+    if (value === 'house') setHospitalPlace(null);
   };
 
   const save = async () => {
@@ -106,9 +177,29 @@ const MissionClinicalCard = ({
         }
       }
       if (showRoutingFields) {
-        payload.hospital_name = hospitalName.trim() || null;
+        const name = hospitalPlace?.name?.trim() || '';
+        const dLat = hospitalPlace?.latitude;
+        const dLng = hospitalPlace?.longitude;
+        const hasCoords = Number.isFinite(dLat) && Number.isFinite(dLng);
+
+        if (isHospitalDestinationType(destinationType)) {
+          if (!name || !hasCoords) {
+            alert(
+              'Pick a registered clinic from the list or search and select a hospital on Google Maps.'
+            );
+            return;
+          }
+        }
+
+        payload.hospital_name = name || null;
         payload.destination_type = destinationType || null;
         payload.medication_service_eligible = medicationEligible;
+        payload.destination_clinic_id =
+          destinationType === 'house' ? null : hospitalPlace?.clinicId || null;
+        payload.destination_latitude =
+          destinationType === 'house' || !hasCoords ? null : dLat;
+        payload.destination_longitude =
+          destinationType === 'house' || !hasCoords ? null : dLng;
       }
       const { error } = await supabase.from('bookings').update(payload).eq('id', booking.id);
       if (error) throw error;
@@ -231,13 +322,17 @@ const MissionClinicalCard = ({
               <section className="mission-clinical-section mission-clinical-section--routing">
                 <h4 className="mission-clinical-section__title">After patient secured</h4>
                 <div className="mission-clinical-field">
-                  <label className="field-label">Hospital name</label>
-                  <input
-                    className="modern-input"
-                    value={hospitalName}
-                    onChange={(e) => setHospitalName(e.target.value)}
-                    placeholder="Receiving / referring hospital"
+                  <label className="field-label">Receiving hospital</label>
+                  <HospitalDestinationField
+                    bookingId={booking.id}
+                    clinics={clinicOptions}
+                    value={hospitalPlace}
+                    disabled={destinationType === 'house'}
+                    onChange={setHospitalPlace}
                   />
+                  <p className="mission-clinical-field__hint">
+                    Choose a registered clinic or search Google Maps — the blue map route updates after you save.
+                  </p>
                 </div>
                 <div className="mission-clinical-field">
                   <label className="field-label">Destination type</label>
@@ -315,6 +410,16 @@ const MissionClinicalCard = ({
               <div className="mission-clinical-readonly__block">
                 <p className="mission-clinical-readonly__block-title">Destination</p>
                 <ReadonlyRow label="Hospital" value={booking.hospital_name || '—'} />
+                <ReadonlyRow
+                  label="Source"
+                  value={
+                    booking.destination_clinic_id
+                      ? 'Registered clinic'
+                      : booking.destination_latitude != null
+                        ? 'Google Maps'
+                        : '—'
+                  }
+                />
                 <ReadonlyRow label="Type" value={destinationLabel(booking.destination_type)} />
                 <ReadonlyRow
                   label="Medication"

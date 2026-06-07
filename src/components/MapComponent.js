@@ -3,23 +3,16 @@ import { GoogleMap, Marker, DirectionsRenderer, TrafficLayer, InfoWindow } from 
 import { supabase } from '../supabaseClient';
 import { buildGoogleMapOptions, MAP_FOCUS_ZOOM } from '../config/googleMapDisplayOptions';
 import { getClinicPinIcon } from '../config/clinicMapMarker';
+import { mergeClinicsForActiveMissions, resolveBookingMapDestination } from '../utils/clinicRouting';
 
 const containerStyle = { width: '100%', height: '100%' };
 const initialCenter = { lat: 5.5135, lng: 100.5400 };
 
 /** Patient scene vs clinic: after pickup, route + marker use the destination clinic. */
 function getBookingDestination(b, clinicsList) {
-  if (b.status === 'Picked Up' && b.destination_clinic_id != null) {
-    const h = clinicsList.find((x) => String(x.id) === String(b.destination_clinic_id));
-    if (h) {
-      const lat = h.latitude ?? h.lat;
-      const lng = h.longitude ?? h.lng;
-      if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-        return { lat: Number(lat), lng: Number(lng) };
-      }
-    }
-  }
-  return { lat: Number(b.latitude), lng: Number(b.longitude) };
+  const dest = resolveBookingMapDestination(b, clinicsList);
+  if (!dest) return { lat: NaN, lng: NaN };
+  return { lat: dest.lat, lng: dest.lng };
 }
 
 const MapComponent = ({
@@ -76,6 +69,7 @@ const MapComponent = ({
       );
       const clinicDriverIds = new Set(nextDrv.map((d) => d.id));
       nextBkg = nextBkg.filter((b) => b.driver_id && clinicDriverIds.has(b.driver_id));
+      nextClinics = mergeClinicsForActiveMissions(nextClinics, clinicRows || [], nextBkg);
     } else if (facilityClinicId) {
       const cid = String(facilityClinicId);
       nextClinics = nextClinics.filter((h) => String(h.id) === cid);
@@ -85,6 +79,7 @@ const MapComponent = ({
       const outbound = (bkg || []).filter((b) => b.driver_id && clinicDriverIds.has(b.driver_id));
       const merged = [...inbound, ...outbound];
       nextBkg = merged.filter((b, i, arr) => arr.findIndex((x) => x.id === b.id) === i);
+      nextClinics = mergeClinicsForActiveMissions(nextClinics, clinicRows || [], nextBkg);
     }
 
     setDrivers(nextDrv);

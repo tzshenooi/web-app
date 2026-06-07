@@ -1,3 +1,5 @@
+import { resolveBookingMapDestination } from './clinicRouting';
+
 const ACTIVE_MISSION_STATUSES = ['Pending', 'Accepted', 'Assigned', 'En Route', 'Picked Up'];
 
 export function toKm(lat1, lng1, lat2, lng2) {
@@ -11,18 +13,8 @@ export function toKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function missionDestination(booking, clinic) {
-  if (booking.status === 'Picked Up' && booking.destination_clinic_id != null && clinic) {
-    const lat = Number(clinic.latitude ?? clinic.lat);
-    const lng = Number(clinic.longitude ?? clinic.lng);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, label: clinic.name || 'Clinic' };
-  }
-  const lat = Number(booking.latitude);
-  const lng = Number(booking.longitude);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    return { lat, lng, label: booking.location || 'Incident' };
-  }
-  return null;
+function missionDestination(booking, clinics) {
+  return resolveBookingMapDestination(booking, clinics);
 }
 
 export function statusDotClass(status) {
@@ -47,8 +39,12 @@ export function computeEtaMinutes(driver, dest) {
 
 /**
  * Live fleet rows for clinic portal (status + mission + ETA).
+ * @param {object|null} clinic - Dispatch clinic (fallback when clinics list omitted)
+ * @param {object[]|null} clinics - All clinics for destination lookup after pickup
  */
-export function buildDriverFleetRows(drivers, bookings, clinic) {
+export function buildDriverFleetRows(drivers, bookings, clinic, clinics = null) {
+  const clinicList = clinics?.length ? clinics : clinic ? [clinic] : [];
+
   return (drivers || []).map((driver) => {
     const activeBooking = (bookings || []).find(
       (b) => b.driver_id === driver.id && ACTIVE_MISSION_STATUSES.includes(b.status)
@@ -62,7 +58,7 @@ export function buildDriverFleetRows(drivers, bookings, clinic) {
     let destLabel = null;
 
     if (activeBooking) {
-      const dest = missionDestination(activeBooking, clinic);
+      const dest = missionDestination(activeBooking, clinicList);
       destLabel = dest?.label ?? activeBooking.location ?? 'Mission';
       etaMinutes = computeEtaMinutes(driver, dest);
       if (etaMinutes != null) etaLabel = `${etaMinutes} min`;

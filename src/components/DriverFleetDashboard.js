@@ -9,10 +9,13 @@ const priorityForBooking = (booking) => {
   return 'priority-standard';
 };
 
-const DriverFleetDashboard = ({ drivers, bookings, clinic, onFocusDriver }) => {
+const DriverFleetDashboard = ({ drivers, bookings, clinic, clinics = null, onFocusDriver }) => {
   const [expandedId, setExpandedId] = useState(null);
 
-  const rows = useMemo(() => buildDriverFleetRows(drivers, bookings, clinic), [drivers, bookings, clinic]);
+  const rows = useMemo(
+    () => buildDriverFleetRows(drivers, bookings, clinic, clinics),
+    [drivers, bookings, clinic, clinics]
+  );
 
   const summary = useMemo(() => {
     const available = rows.filter((r) => r.status.toLowerCase() === 'available').length;

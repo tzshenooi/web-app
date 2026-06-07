@@ -10,7 +10,7 @@ const RegisterFacility = () => {
   const [clinicNames, setClinicNames] = useState([]);
   const [registering, setRegistering] = useState(false);
   const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', phone: '' });
   const [clinicLocation, setClinicLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
@@ -39,14 +39,20 @@ const RegisterFacility = () => {
     setStep(2);
   };
 
+  const phoneDigits = (raw) => String(raw || '').replace(/\D/g, '');
+
   const registerFacility = async (e) => {
     e.preventDefault();
     const name = registerForm.name.trim();
     const specialty = registerForm.specialty.trim();
+    const phone = registerForm.phone.trim();
     const email = account.email.trim();
     const { password } = account;
 
     if (!name) return showToast('error', 'Enter a clinic name.');
+    if (phoneDigits(phone).length < 8) {
+      return showToast('error', 'Enter a valid clinic phone number (at least 8 digits).');
+    }
     if (clinicNames.some((h) => String(h.name || '').trim().toLowerCase() === name.toLowerCase())) {
       return showToast('error', 'That clinic name is already registered.');
     }
@@ -94,6 +100,7 @@ const RegisterFacility = () => {
       const clinicPayload = {
         name,
         email,
+        phone,
         specialty: specialty || 'General',
         auth_user_id: user.id,
         address: clinicLocation.address,
@@ -112,10 +119,10 @@ const RegisterFacility = () => {
         if (clinicError.code === '23505') {
           return showToast('error', 'That clinic name or email is already registered.');
         }
-        if (clinicError.code === 'PGRST204' || /address/i.test(clinicError.message || '')) {
+        if (clinicError.code === 'PGRST204' || /address|phone/i.test(clinicError.message || '')) {
           return showToast(
             'error',
-            'Database is missing the address column. Run web-app/supabase/clinics_address.sql in Supabase SQL Editor.'
+            'Database is missing required columns. Run web-app/supabase/clinics_address.sql and clinics_phone.sql in Supabase SQL Editor.'
           );
         }
         return showToast('error', clinicError.message);
@@ -134,7 +141,7 @@ const RegisterFacility = () => {
       }
 
       setAccount({ email: '', password: '', confirmPassword: '' });
-      setRegisterForm({ name: '', specialty: '' });
+      setRegisterForm({ name: '', specialty: '', phone: '' });
       setClinicLocation(null);
       setStep(1);
       navigate('/', { replace: true, state: { loginNotice: 'clinic_registered' } });
@@ -156,7 +163,7 @@ const RegisterFacility = () => {
           {step === 1 ? (
             <p>Sign-in email and password for the Clinic Portal.</p>
           ) : (
-            <p>Clinic name, specialty, and address (used for the map pin). Your email is stored on the clinic record.</p>
+            <p>Clinic name, specialty, contact phone, and address (used for the map pin). Patients call this number from the mobile app.</p>
           )}
         </div>
 
@@ -235,6 +242,23 @@ const RegisterFacility = () => {
                 onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))}
                 placeholder="e.g. General"
               />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="reg-phone">Clinic phone</label>
+              <input
+                id="reg-phone"
+                className="auth-input"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                value={registerForm.phone}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="e.g. +60123456789"
+                required
+              />
+              <p className="facility-muted" style={{ marginTop: 6, fontSize: '0.8rem' }}>
+                Shown to patients for phone bookings via the mobile app.
+              </p>
             </div>
             <div className="auth-field">
               <label htmlFor="reg-address">Clinic address</label>

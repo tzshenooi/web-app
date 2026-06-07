@@ -116,9 +116,11 @@ const FacilityPortal = () => {
   const [clinic, setClinic] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [allClinics, setAllClinics] = useState([]);
   const [removingDriverId, setRemovingDriverId] = useState(null);
   const [selectedFacilityId, setSelectedFacilityId] = useState('');
   const [clinicLocationEdit, setClinicLocationEdit] = useState(null);
+  const [clinicPhoneEdit, setClinicPhoneEdit] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [booting, setBooting] = useState(true);
@@ -209,6 +211,7 @@ const FacilityPortal = () => {
           }
         : null
     );
+    setClinicPhoneEdit((clinicRow.phone || '').trim());
 
     // Service role bypasses RLS — clinic JWT often has no clinic_id even when resolveClinicId works.
     const driverDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
@@ -221,7 +224,7 @@ const FacilityPortal = () => {
       showToast('error', `Could not load drivers: ${drvErr.message}`);
     }
     const bookingDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
-    const [{ data: activeBookings }, { data: completedBookings }, { data: scheduledBookings }] =
+    const [{ data: activeBookings }, { data: completedBookings }, { data: scheduledBookings }, { data: clinicRows }] =
       await Promise.all([
         supabase.from('bookings').select('*').in('status', ACTIVE_CLINIC_MISSION_STATUSES),
         supabase
@@ -235,6 +238,7 @@ const FacilityPortal = () => {
           .select('*')
           .eq('status', SCHEDULED_BOOKING_STATUS)
           .or(`assigned_clinic_id.eq.${clinicId},assigned_clinic_id.is.null`),
+        supabase.from('clinics').select('id, name, latitude, longitude, address, specialty').order('name'),
       ]);
 
     const bookingById = new Map();
@@ -244,6 +248,7 @@ const FacilityPortal = () => {
 
     if (drv) setDrivers(drv);
     setBookings([...bookingById.values()]);
+    setAllClinics(clinicRows || []);
 
     if (initialPassRef.current) {
       setBooting(false);
@@ -518,10 +523,16 @@ const FacilityPortal = () => {
       return showToast('error', 'Address coordinates are out of range.');
     }
 
+    const phone = clinicPhoneEdit.trim();
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phone && phoneDigits.length < 8) {
+      return showToast('error', 'Enter a valid clinic phone number (at least 8 digits).');
+    }
+
     setSaving(true);
     const { error } = await supabase
       .from('clinics')
-      .update({ latitude, longitude, address })
+      .update({ latitude, longitude, address, phone: phone || null })
       .eq('id', selectedFacilityId);
     setSaving(false);
     if (error) return showToast('error', error.message);
@@ -849,6 +860,7 @@ const FacilityPortal = () => {
                   drivers={drivers}
                   bookings={bookings}
                   clinic={selectedFacility}
+                  clinics={allClinics}
                   onFocusDriver={(pos, driverId) => {
                     if (driverId) setTrackedDriverId(driverId);
                     focusMap(pos.lat, pos.lng, { setZoom: true });
@@ -947,6 +959,8 @@ const FacilityPortal = () => {
                           compact
                           facilityName={selectedFacility?.name}
                           clinicLocationEdit={clinicLocationEdit}
+                          clinicPhone={clinicPhoneEdit}
+                          onPhoneChange={setClinicPhoneEdit}
                           onPlaceSelected={setClinicLocationEdit}
                           onSubmit={saveClinicLocation}
                           saving={saving}
