@@ -11,6 +11,35 @@ function guessKind(name) {
   return 'file';
 }
 
+/** Human-readable label — storage paths use UUIDs / scaled_* names from mobile uploads. */
+export function formatAttachmentLabel(name, kind, indexWithinKind = 0) {
+  const n = indexWithinKind + 1;
+  const suffix = n > 1 ? ` ${n}` : '';
+  switch (kind) {
+    case 'audio':
+      return `Voice note${suffix}`;
+    case 'video':
+      return `Video${suffix}`;
+    case 'image':
+      return `Photo${suffix}`;
+    default:
+      return truncateFilename(name) || `Attachment${suffix}`;
+  }
+}
+
+function truncateFilename(name, maxLen = 36) {
+  if (!name) return 'File';
+  if (name.length <= maxLen) return name;
+  const dot = name.lastIndexOf('.');
+  if (dot > 0 && dot < name.length - 1) {
+    const ext = name.slice(dot);
+    const head = name.slice(0, dot);
+    const keep = maxLen - ext.length - 1;
+    if (keep > 4) return `${head.slice(0, keep)}…${ext}`;
+  }
+  return `${name.slice(0, maxLen - 1)}…`;
+}
+
 /**
  * List signed URLs for all files under {reporterUserId}/{reportId}/…
  * @returns {Promise<Array<{ name: string, path: string, url: string, kind: string }>>}

@@ -13,6 +13,7 @@ const HospitalDestinationField = ({
   clinics = [],
   disabled = false,
   bookingId,
+  compact = false,
 }) => {
   const routableClinics = (clinics || []).filter(clinicHasMapPosition);
   const registeredId =
@@ -49,71 +50,45 @@ const HospitalDestinationField = ({
   const googleValue = value?.source === 'google' ? value : null;
 
   return (
-    <div className="hospital-destination-field">
-      <div className="mission-clinical-field">
-        <label className="field-label">Registered clinic</label>
-        <select
-          className="modern-select"
-          value={registeredId}
-          onChange={(e) => selectRegisteredClinic(e.target.value)}
-          style={{ width: '100%' }}
-          disabled={disabled}
-        >
-          <option value="">Quick pick from registered clinics…</option>
-          {routableClinics.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.specialty ? ` · ${c.specialty}` : ''}
-            </option>
-          ))}
-        </select>
-        {routableClinics.length === 0 ? (
-          <p className="mission-clinical-field__hint">
-            No registered clinics with map coordinates yet — use Google search below or set location under Settings.
-          </p>
-        ) : null}
-      </div>
-
-      <p
-        className="facility-muted"
-        style={{ textAlign: 'center', fontSize: '0.8rem', margin: '12px 0', opacity: 0.85 }}
+    <div className={`hospital-destination-field${compact ? ' hospital-destination-field--compact' : ''}`}>
+      <select
+        className="modern-select"
+        value={registeredId}
+        onChange={(e) => selectRegisteredClinic(e.target.value)}
+        style={{ width: '100%' }}
+        disabled={disabled}
+        aria-label="Registered clinic"
       >
-        — or search on Google Maps —
-      </p>
+        <option value="">{compact ? 'Registered clinic…' : 'Quick pick from registered clinics…'}</option>
+        {routableClinics.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+            {c.specialty && !compact ? ` · ${c.specialty}` : ''}
+          </option>
+        ))}
+      </select>
 
-      <div className="mission-clinical-field">
-        <label className="field-label">Search hospital name</label>
-        <HospitalSearchField
-          inputId={`hospital-google-${bookingId}`}
-          value={googleValue}
-          disabled={disabled}
-          placeholder="Search hospital name…"
-          onPlaceSelected={selectGooglePlace}
-        />
-      </div>
+      <span className="hospital-destination-field__or" aria-hidden="true">or</span>
 
-      {value?.name && value?.source === 'registered' ? (
-        <p className="facility-muted" style={{ marginTop: 8, fontSize: '0.85rem', lineHeight: 1.4 }}>
-          <strong>{value.name}</strong>
-          {value.address && value.address !== value.name ? (
-            <>
-              <br />
-              {value.address}
-            </>
+      <HospitalSearchField
+        inputId={`hospital-google-${bookingId}`}
+        value={googleValue}
+        disabled={disabled}
+        placeholder={compact ? 'Search Google Maps…' : 'Search hospital name…'}
+        hideSummary
+        showSelectionInInput={false}
+        onPlaceSelected={selectGooglePlace}
+      />
+
+      {value?.name ? (
+        <div className="hospital-destination-field__selected" title={value.address || value.name}>
+          <span className="hospital-destination-field__selected-name">{value.name}</span>
+          {value.source === 'registered' ? (
+            <span className="hospital-destination-field__tag">Registry</span>
+          ) : value.source === 'google' ? (
+            <span className="hospital-destination-field__tag">Maps</span>
           ) : null}
-          {Number.isFinite(value.latitude) && Number.isFinite(value.longitude) ? (
-            <>
-              <br />
-              <span style={{ opacity: 0.85 }}>
-                {Number(value.latitude).toFixed(5)}, {Number(value.longitude).toFixed(5)}
-              </span>
-            </>
-          ) : null}
-          <br />
-          <span className="facility-pill neutral" style={{ marginTop: 6, display: 'inline-block' }}>
-            Registered clinic
-          </span>
-        </p>
+        </div>
       ) : null}
     </div>
   );

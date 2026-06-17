@@ -1049,7 +1049,51 @@ body {
 
 .incoming-mission-details {
   width: 100%;
-  padding-top: 8px;
+  padding-top: 10px;
+}
+
+.incoming-mission-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.incoming-mission-name-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.incoming-mission-driver {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.incoming-mission-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.incoming-mission-action {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.incoming-mission-footnote {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.facility-pill--sm {
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  font-weight: 700;
 }
 
 /* Facility portal: dashboard-structure bridge */

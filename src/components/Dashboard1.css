@@ -824,6 +824,111 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   margin-top: 16px;
 }
 
+.mission-clinical-card--compact {
+  margin-top: 10px;
+  border-radius: 10px;
+  border-color: #e8edf2;
+  box-shadow: none;
+}
+
+.mission-clinical-card--compact .mission-clinical-card__body {
+  padding: 12px 14px 14px;
+}
+
+.mission-clinical-card--compact .mission-clinical-section + .mission-clinical-section {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.mission-clinical-card--compact .mission-clinical-section__title {
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+}
+
+.mission-clinical-card--compact .mission-clinical-section__title--compact {
+  color: #0f766e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mission-clinical-card--compact .field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #475569;
+  margin-bottom: 5px;
+}
+
+.mission-clinical-card--compact .mission-clinical-field {
+  margin-bottom: 10px;
+}
+
+.mission-clinical-card--compact .mission-clinical-checkbox {
+  margin-top: 2px;
+  font-size: 0.82rem;
+}
+
+.mission-clinical-card--compact .mission-clinical-save {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+}
+
+.hospital-destination-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hospital-destination-field--compact {
+  gap: 6px;
+}
+
+.hospital-destination-field__or {
+  align-self: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.hospital-destination-field__selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  min-width: 0;
+}
+
+.hospital-destination-field__selected-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hospital-destination-field__tag {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .mission-clinical-readonly {
   display: flex;
   flex-direction: column;
@@ -937,6 +1042,14 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   font-size: 0.82rem;
   color: #334155;
   margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patient-report-attachments__image-link {
+  display: block;
+  line-height: 0;
 }
 
 .patient-report-attachments__media {

@@ -12,6 +12,7 @@ const IncomingMissionCard = ({ mission, onDispatch, onSaved }) => {
   const showRoutingFields =
     patientSecured &&
     (mission.kind === 'transfer' || (mission.kind === 'patient_report' && Boolean(b?.driver_id)));
+  const awaitingDestination = showRoutingFields && !b?.destination_type;
 
   return (
     <div className="unit-card-new incoming-mission-card" style={{ cursor: 'default' }}>
@@ -21,7 +22,14 @@ const IncomingMissionCard = ({ mission, onDispatch, onSaved }) => {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <strong className="unit-name-text">{mission.patientName}</strong>
+        <div className="incoming-mission-name-block">
+          <strong className="unit-name-text">{mission.patientName}</strong>
+          {!open && (
+            <span className="incoming-mission-name-meta">
+              <span className="facility-pill facility-pill--sm">{mission.status}</span>
+            </span>
+          )}
+        </div>
         <span className="incoming-mission-chevron" aria-hidden="true">
           {open ? '▾' : '▸'}
         </span>
@@ -30,18 +38,19 @@ const IncomingMissionCard = ({ mission, onDispatch, onSaved }) => {
       {open && (
         <div className="incoming-mission-details">
           {mission.driverName ? (
-            <span className="unit-sub-text">{mission.driverName}</span>
+            <span className="unit-sub-text incoming-mission-driver">{mission.driverName}</span>
           ) : null}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-            <span className="facility-pill">{mission.status}</span>
-            <span className="facility-pill eta">
+          <div className="incoming-mission-pills">
+            <span className="facility-pill facility-pill--sm">{mission.status}</span>
+            <span className="facility-pill eta facility-pill--sm">
               {mission.kind === 'patient_report' ? mission.eta : `ETA ${mission.eta}`}
             </span>
           </div>
 
           <MissionClinicalCard
             booking={b}
-            showIntakeFields={mission.kind === 'patient_report'}
+            compact
+            showIntakeFields={mission.kind === 'patient_report' && !showRoutingFields}
             showRoutingFields={showRoutingFields}
             onSaved={onSaved}
           />
@@ -53,25 +62,15 @@ const IncomingMissionCard = ({ mission, onDispatch, onSaved }) => {
           {mission.kind === 'patient_report' && !b?.driver_id && (
             <button
               type="button"
-              className="confirm-btn"
-              style={{ marginTop: 10 }}
+              className="confirm-btn incoming-mission-action"
               onClick={() => onDispatch(mission)}
             >
               Send ambulance
             </button>
           )}
 
-          {mission.kind === 'patient_report' && b?.driver_id && !patientSecured && (
-            <p className="facility-muted" style={{ fontSize: '0.8rem', marginTop: 10 }}>
-              Hospital and destination appear here after the driver secures the patient on scene.
-            </p>
-          )}
-          {mission.kind === 'patient_report' && b?.driver_id && patientSecured && (
-            <p className="facility-muted" style={{ fontSize: '0.8rem', marginTop: 10 }}>
-              {b?.destination_type
-                ? 'Record stays until the driver completes discharge. You can edit anytime.'
-                : 'Complete destination and hospital below. Record removes after driver completes discharge.'}
-            </p>
+          {awaitingDestination && (
+            <p className="incoming-mission-footnote">Set destination below, then save.</p>
           )}
         </div>
       )}

@@ -54,6 +54,7 @@ const MissionClinicalCard = ({
   showIntakeFields = true,
   showRoutingFields = false,
   showTimelineFields = false,
+  compact = false,
   onSaved,
 }) => {
   const [patientId, setPatientId] = useState('');
@@ -229,47 +230,58 @@ const MissionClinicalCard = ({
   const ambulanceDispatched = Boolean(booking?.driver_id);
   const patientSecured = booking?.status === 'Picked Up';
   const incidentAddress = booking.location || booking.emergency_type || null;
-  const hint = cardHint({
-    intakeOnly,
-    routingOnly,
-    showIntakeFields,
-    showRoutingFields,
-    ambulanceDispatched,
-    patientSecured,
-  });
+  const hint =
+    compact
+      ? null
+      : cardHint({
+          intakeOnly,
+          routingOnly,
+          showIntakeFields,
+          showRoutingFields,
+          ambulanceDispatched,
+          patientSecured,
+        });
+
+  const cardClass = compact
+    ? 'mission-clinical-card mission-clinical-card--compact'
+    : 'mission-clinical-card';
 
   return (
-    <div className="mission-clinical-card">
-      <header className="mission-clinical-card__header">
-        <span className="mission-clinical-card__eyebrow">
-          {routingOnly ? 'Destination' : 'Clinical record'}
-        </span>
-        <h3 className="mission-clinical-card__title">
-          {routingOnly ? 'Hospital & destination' : 'Dispatch record'}
-        </h3>
-        {hint ? <p className="mission-clinical-card__hint">{hint}</p> : null}
-      </header>
+    <div className={cardClass}>
+      {!compact && (
+        <header className="mission-clinical-card__header">
+          <span className="mission-clinical-card__eyebrow">
+            {routingOnly ? 'Destination' : 'Clinical record'}
+          </span>
+          <h3 className="mission-clinical-card__title">
+            {routingOnly ? 'Hospital & destination' : 'Dispatch record'}
+          </h3>
+          {hint ? <p className="mission-clinical-card__hint">{hint}</p> : null}
+        </header>
+      )}
 
       <div className="mission-clinical-card__body">
         {editable ? (
           <>
             {showIntakeFields && (
               <section className="mission-clinical-section">
-                <h4 className="mission-clinical-section__title">Caller details</h4>
+                {!compact ? (
+                  <h4 className="mission-clinical-section__title">Caller details</h4>
+                ) : null}
                 <div className="mission-clinical-field">
-                  <label className="field-label">Patient ID (NRIC / hospital no.)</label>
+                  <label className="field-label">{compact ? 'Patient ID' : 'Patient ID (NRIC / hospital no.)'}</label>
                   <input
                     className="modern-input"
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
-                    placeholder="NRIC / hospital no."
+                    placeholder="NRIC or hospital no."
                   />
                   <button
                     type="button"
-                    className="confirm-btn confirm-btn--outline confirm-btn--sm"
+                    className="confirm-btn confirm-btn--outline confirm-btn--sm mission-clinical-unknown-btn"
                     onClick={() => setPatientId(UNKNOWN_PATIENT_ID)}
                   >
-                    Mark as unknown
+                    Unknown
                   </button>
                 </div>
                 <IncidentAddressBlock address={incidentAddress} />
@@ -320,29 +332,33 @@ const MissionClinicalCard = ({
 
             {showRoutingFields && (
               <section className="mission-clinical-section mission-clinical-section--routing">
-                <h4 className="mission-clinical-section__title">After patient secured</h4>
+                {!compact ? (
+                  <h4 className="mission-clinical-section__title">After patient secured</h4>
+                ) : (
+                  <h4 className="mission-clinical-section__title mission-clinical-section__title--compact">
+                    Destination
+                  </h4>
+                )}
                 <div className="mission-clinical-field">
-                  <label className="field-label">Receiving hospital</label>
+                  {!compact ? <label className="field-label">Receiving hospital</label> : null}
                   <HospitalDestinationField
                     bookingId={booking.id}
                     clinics={clinicOptions}
                     value={hospitalPlace}
                     disabled={destinationType === 'house'}
+                    compact={compact}
                     onChange={setHospitalPlace}
                   />
-                  <p className="mission-clinical-field__hint">
-                    Choose a registered clinic or search Google Maps — the blue map route updates after you save.
-                  </p>
                 </div>
                 <div className="mission-clinical-field">
-                  <label className="field-label">Destination type</label>
+                  <label className="field-label">{compact ? 'Type' : 'Destination type'}</label>
                   <select
                     className="modern-select"
                     value={destinationType}
                     onChange={(e) => onDestinationChange(e.target.value)}
                     style={{ width: '100%' }}
                   >
-                    <option value="">Select destination type…</option>
+                    <option value="">{compact ? 'Select type…' : 'Select destination type…'}</option>
                     {DESTINATION_TYPES.map((d) => (
                       <option key={d.value} value={d.value}>
                         {d.label}
@@ -356,9 +372,9 @@ const MissionClinicalCard = ({
                     checked={medicationEligible}
                     onChange={(e) => setMedicationEligible(e.target.checked)}
                   />
-                  <span>Clinic can provide medication for this case</span>
+                  <span>{compact ? 'Medication eligible' : 'Clinic can provide medication for this case'}</span>
                 </label>
-                {!medicationEligible && destinationType && destinationType !== 'public_hospital' ? (
+                {!compact && !medicationEligible && destinationType && destinationType !== 'public_hospital' ? (
                   <p className="mission-clinical-callout">
                     House and private hospital trips often cannot receive medication from this clinic.
                   </p>
@@ -367,7 +383,13 @@ const MissionClinicalCard = ({
             )}
 
             <button type="button" className="confirm-btn mission-clinical-save" disabled={saving} onClick={save}>
-              {saving ? 'Saving…' : showRoutingFields && !showIntakeFields ? 'Save destination' : 'Save record'}
+              {saving
+                ? 'Saving…'
+                : compact && showRoutingFields
+                  ? 'Save'
+                  : showRoutingFields && !showIntakeFields
+                    ? 'Save destination'
+                    : 'Save record'}
             </button>
           </>
         ) : (

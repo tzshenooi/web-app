@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { fetchReporterUserId, loadPatientReportAttachments } from '../utils/patientReportAttachments';
+import {
+  fetchReporterUserId,
+  formatAttachmentLabel,
+  loadPatientReportAttachments,
+} from '../utils/patientReportAttachments';
 
 /**
  * Voice / photo / video the patient attached when submitting their report.
@@ -66,30 +70,43 @@ const PatientReportAttachments = ({ patientReportId, title = 'Patient attachment
       )}
       {!loading && !error && items.length > 0 && (
         <ul className="patient-report-attachments__list">
-          {items.map((item) => (
-            <li key={item.path} className="patient-report-attachments__item">
-              <span className="patient-report-attachments__label">
-                {item.kind === 'audio' ? '🎤' : item.kind === 'video' ? '🎬' : item.kind === 'image' ? '🖼' : '📎'}{' '}
-                {item.name}
-              </span>
-              {item.kind === 'audio' && (
-                <audio controls preload="metadata" src={item.url} className="patient-report-attachments__media" />
-              )}
-              {item.kind === 'video' && (
-                <video controls preload="metadata" src={item.url} className="patient-report-attachments__media" />
-              )}
-              {item.kind === 'image' && (
-                <a href={item.url} target="_blank" rel="noopener noreferrer">
-                  <img src={item.url} alt={item.name} className="patient-report-attachments__thumb" />
-                </a>
-              )}
-              {item.kind === 'file' && (
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="auth-link">
-                  Open file
-                </a>
-              )}
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const kindIndex = items.slice(0, index).filter((x) => x.kind === item.kind).length;
+            const label = formatAttachmentLabel(item.name, item.kind, kindIndex);
+            const showLabel = item.kind !== 'image';
+
+            return (
+              <li key={item.path} className="patient-report-attachments__item">
+                {showLabel && (
+                  <span className="patient-report-attachments__label">
+                    {item.kind === 'audio' ? '🎤' : item.kind === 'video' ? '🎬' : '📎'} {label}
+                  </span>
+                )}
+                {item.kind === 'audio' && (
+                  <audio controls preload="metadata" src={item.url} className="patient-report-attachments__media" />
+                )}
+                {item.kind === 'video' && (
+                  <video controls preload="metadata" src={item.url} className="patient-report-attachments__media" />
+                )}
+                {item.kind === 'image' && (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="patient-report-attachments__image-link"
+                    title={`Open ${label}`}
+                  >
+                    <img src={item.url} alt={label} className="patient-report-attachments__thumb" />
+                  </a>
+                )}
+                {item.kind === 'file' && (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="auth-link">
+                    Open file
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
