@@ -893,6 +893,16 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   font-weight: 600;
   color: #94a3b8;
   line-height: 1;
+  margin: 2px 0 4px;
+}
+
+.mission-clinical-field--maps-fallback {
+  margin-top: 4px;
+}
+
+.mission-clinical-card--compact .mission-clinical-field--maps-fallback {
+  margin-top: 2px;
+  margin-bottom: 8px;
 }
 
 .hospital-destination-field__selected {
@@ -927,6 +937,114 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   background: #e2e8f0;
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.clinics-with-beds {
+  margin-bottom: 10px;
+}
+
+.clinics-with-beds--empty {
+  margin-bottom: 8px;
+}
+
+.clinics-with-beds__title {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.clinics-with-beds__empty {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
+.clinics-with-beds__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clinics-with-beds__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.clinics-with-beds__item:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.clinics-with-beds__item--selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+}
+
+.clinics-with-beds__item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.clinics-with-beds__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinics-with-beds__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.clinics-with-beds__beds {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #047857;
+  background: #d1fae5;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.clinics-with-beds__dist {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.clinics-with-beds__tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mission-clinical-field__hint--inline {
+  margin: 0 0 8px;
 }
 
 .mission-clinical-readonly {

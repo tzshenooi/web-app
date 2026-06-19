@@ -11,6 +11,7 @@ import {
   UNKNOWN_PATIENT_ID,
 } from '../constants/missionClinical';
 import HospitalDestinationField from './HospitalDestinationField';
+import ClinicsWithBedsPanel from './ClinicsWithBedsPanel';
 import {
   isHospitalDestinationType,
 } from '../utils/clinicRouting';
@@ -74,7 +75,7 @@ const MissionClinicalCard = ({
     (async () => {
       const { data, error } = await supabase
         .from('clinics')
-        .select('id, name, latitude, longitude, address, specialty')
+        .select('id, name, latitude, longitude, address, specialty, bed_capacity, beds_occupied')
         .order('name');
       if (!cancelled && !error) setClinicOptions(data || []);
     })();
@@ -155,6 +156,19 @@ const MissionClinicalCard = ({
     if (value === 'house') setHospitalPlace(null);
   };
 
+  const pickClinicDestination = (place) => {
+    if (!place) {
+      setHospitalPlace(null);
+      return;
+    }
+    setHospitalPlace(place);
+    if (!destinationType || destinationType === 'house') {
+      setDestinationType('private_hospital');
+      const def = medicationDefaultForDestination('private_hospital');
+      if (def !== null) setMedicationEligible(def);
+    }
+  };
+
   const save = async () => {
     if (!booking?.id) return;
     setSaving(true);
@@ -186,7 +200,7 @@ const MissionClinicalCard = ({
         if (isHospitalDestinationType(destinationType)) {
           if (!name || !hasCoords) {
             alert(
-              'Pick a registered clinic from the list or search and select a hospital on Google Maps.'
+              'Pick a clinic with available beds or search Google Maps for a hospital.'
             );
             return;
           }
@@ -339,15 +353,26 @@ const MissionClinicalCard = ({
                     Destination
                   </h4>
                 )}
-                <div className="mission-clinical-field">
-                  {!compact ? <label className="field-label">Receiving hospital</label> : null}
+                <ClinicsWithBedsPanel
+                  clinics={clinicOptions}
+                  patientLat={booking.latitude}
+                  patientLng={booking.longitude}
+                  selectedClinicId={hospitalPlace?.clinicId}
+                  dispatchClinicId={booking.assigned_clinic_id}
+                  disabled={destinationType === 'house'}
+                  onSelectClinic={pickClinicDestination}
+                />
+                <div className="mission-clinical-field mission-clinical-field--maps-fallback">
+                  {!compact ? (
+                    <label className="field-label">Other hospital (Google Maps)</label>
+                  ) : null}
                   <HospitalDestinationField
                     bookingId={booking.id}
                     clinics={clinicOptions}
                     value={hospitalPlace}
                     disabled={destinationType === 'house'}
                     compact={compact}
-                    onChange={setHospitalPlace}
+                    onChange={pickClinicDestination}
                   />
                 </div>
                 <div className="mission-clinical-field">
