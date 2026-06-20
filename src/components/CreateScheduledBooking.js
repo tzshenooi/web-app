@@ -171,7 +171,7 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
           className="modern-input"
           value={patientId}
           onChange={(e) => setPatientId(e.target.value)}
-          placeholder="NRIC / hospital registration no."
+          placeholder="NRIC / patient registration no."
           required
         />
       </div>
@@ -215,7 +215,7 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
           className="modern-input"
           value={hospitalName}
           onChange={(e) => setHospitalName(e.target.value)}
-          placeholder="Receiving / referring hospital"
+          placeholder="Receiving / referring clinic"
         />
       </div>
 

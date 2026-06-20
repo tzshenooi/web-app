@@ -48,9 +48,9 @@ export function patientReportMissionDisplay(booking) {
 }
 
 export const DESTINATION_TYPES = [
-  { value: 'public_hospital', label: 'Public hospital', medicationDefault: true },
+  { value: 'public_hospital', label: 'Public', medicationDefault: true },
   { value: 'house', label: 'House / home', medicationDefault: false },
-  { value: 'private_hospital', label: 'Private hospital', medicationDefault: false },
+  { value: 'private_hospital', label: 'Private', medicationDefault: false },
 ];
 
 export function destinationLabel(value) {
@@ -83,4 +83,19 @@ export function formatMissionTime(iso) {
   } catch {
     return String(iso);
   }
+}
+
+const INCIDENT_CATEGORY_LABELS = {
+  fire: 'Fire',
+  crime: 'Crime',
+  medical_aid: 'Medical Aid',
+  humanitarian_aid: 'Humanitarian Aid',
+  sea_emergency: 'Sea Emergency',
+};
+
+/** Patient app `incident_category` → display label. */
+export function incidentCategoryLabel(key) {
+  if (!key) return '—';
+  const k = String(key).trim();
+  return INCIDENT_CATEGORY_LABELS[k] || k.replace(/_/g, ' ');
 }

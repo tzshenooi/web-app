@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useClinicNotifications } from '../hooks/useClinicNotifications';
+import { setClinicToastNavigate } from '../utils/clinicToast';
 
 const BellIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -13,6 +14,12 @@ const BellIcon = () => (
   </svg>
 );
 
+function alertIndicatorClass(type) {
+  if (type === 'emergency') return 'emergency';
+  if (type === 'status') return 'status';
+  return 'alert';
+}
+
 export default function ClinicNotificationBell({ clinicId, driverIds = [], onNavigate }) {
   const containerRef = useRef(null);
   const {
@@ -24,6 +31,11 @@ export default function ClinicNotificationBell({ clinicId, driverIds = [], onNav
     markAllRead,
     requestBrowserPermission,
   } = useClinicNotifications(clinicId, driverIds);
+
+  useEffect(() => {
+    setClinicToastNavigate(onNavigate);
+    return () => setClinicToastNavigate(null);
+  }, [onNavigate]);
 
   useEffect(() => {
     requestBrowserPermission();
@@ -92,7 +104,7 @@ export default function ClinicNotificationBell({ clinicId, driverIds = [], onNav
                   }}
                 >
                   <span
-                    className={`noti-indicator ${n.type === 'emergency' ? 'emergency' : n.type === 'status' ? 'status' : 'alert'}`}
+                    className={`noti-indicator ${alertIndicatorClass(n.type)}`}
                     aria-hidden="true"
                   />
                   <div className="noti-content">

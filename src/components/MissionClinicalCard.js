@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { syncPatientReportClinical } from '../utils/syncPatientReportClinical';
 import IncidentAddressBlock from './IncidentAddressBlock';
+import PatientReportIntakeSummary from './PatientReportIntakeSummary';
 import {
   DESTINATION_TYPES,
   destinationLabel,
@@ -13,8 +14,11 @@ import {
 import HospitalDestinationField from './HospitalDestinationField';
 import ClinicsWithBedsPanel from './ClinicsWithBedsPanel';
 import {
+  destinationTypeForClinic,
   isHospitalDestinationType,
 } from '../utils/clinicRouting';
+import { fetchPatientHomeByReportId, homeToHospitalPlace } from '../utils/patientHomeAddress';
+import { broadcastInboundTransfer } from '../utils/inboundTransferSync';
 
 function cardHint({
   intakeOnly,
@@ -25,16 +29,16 @@ function cardHint({
   patientSecured,
 }) {
   if (intakeOnly && !ambulanceDispatched) {
-    return 'Patient ID and pickup location from the caller. Send the ambulance first; hospital details come after the driver secures the patient.';
+    return 'Patient ID and pickup location from the caller. Send the ambulance first; destination details come after the driver secures the patient.';
   }
   if (intakeOnly && ambulanceDispatched && !patientSecured) {
-    return 'Ambulance is en route. Hospital and destination unlock after the driver taps Secure patient on scene.';
+    return 'Ambulance is en route. Destination unlocks after the driver taps Secure patient on scene.';
   }
   if (routingOnly) {
     return 'Patient is on board. Record destination and medication eligibility for this case.';
   }
   if (showIntakeFields && showRoutingFields) {
-    return 'Update caller details or complete hospital and destination below.';
+    return 'Update caller details or complete destination below.';
   }
   return null;
 }
@@ -52,6 +56,7 @@ function ReadonlyRow({ label, value, muted = false }) {
 const MissionClinicalCard = ({
   booking,
   editable = true,
+  viewerClinicId = null,
   showIntakeFields = true,
   showRoutingFields = false,
   showTimelineFields = false,
@@ -67,6 +72,8 @@ const MissionClinicalCard = ({
   const [dischargeAtLocal, setDischargeAtLocal] = useState('');
   const [hospitalPlace, setHospitalPlace] = useState(null);
   const [clinicOptions, setClinicOptions] = useState([]);
+  const [clinicLoadError, setClinicLoadError] = useState(null);
+  const [homeLoadHint, setHomeLoadHint] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -75,9 +82,16 @@ const MissionClinicalCard = ({
     (async () => {
       const { data, error } = await supabase
         .from('clinics')
-        .select('id, name, latitude, longitude, address, specialty, bed_capacity, beds_occupied')
+        .select('id, name, latitude, longitude, address, clinic_type, bed_capacity, beds_occupied')
         .order('name');
-      if (!cancelled && !error) setClinicOptions(data || []);
+      if (cancelled) return;
+      if (error) {
+        setClinicLoadError(error.message);
+        setClinicOptions([]);
+        return;
+      }
+      setClinicLoadError(null);
+      setClinicOptions(data || []);
     })();
     return () => {
       cancelled = true;
@@ -120,6 +134,15 @@ const MissionClinicalCard = ({
         clinicId,
         source: 'registered',
       });
+    } else if (booking.destination_type === 'house' && hasCoords && booking.hospital_name) {
+      setHospitalPlace({
+        name: booking.hospital_name,
+        address: booking.hospital_name,
+        latitude: lat,
+        longitude: lng,
+        clinicId: null,
+        source: 'home',
+      });
     } else if (hasCoords && booking.hospital_name) {
       setHospitalPlace({
         name: booking.hospital_name,
@@ -149,11 +172,66 @@ const MissionClinicalCard = ({
     setDischargeAtLocal(toDatetimeLocalValue(booking.discharge_completed_at));
   }, [booking]);
 
+  const applyPatientHomeDestination = async () => {
+    if (!booking?.patient_report_id) {
+      setHomeLoadHint('No patient report linked — cannot load home address.');
+      setHospitalPlace(null);
+      return;
+    }
+    setHomeLoadHint('Loading patient home address…');
+    try {
+      const home = await fetchPatientHomeByReportId(booking.patient_report_id);
+      const place = homeToHospitalPlace(home);
+      if (!place) {
+        setHospitalPlace(null);
+        setHomeLoadHint(
+          'Patient has not saved a home address yet. Ask them to open the patient app → Profile → Home address.'
+        );
+        return;
+      }
+      setHospitalPlace(place);
+      setHomeLoadHint(null);
+    } catch (err) {
+      setHospitalPlace(null);
+      setHomeLoadHint(err.message || 'Could not load patient home address.');
+    }
+  };
+
+  useEffect(() => {
+    if (!showRoutingFields || destinationType !== 'house') return;
+    if (hospitalPlace?.source === 'home') return;
+    const lat = Number(booking?.destination_latitude);
+    const lng = Number(booking?.destination_longitude);
+    if (
+      booking?.destination_type === 'house' &&
+      booking?.hospital_name &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
+    ) {
+      return;
+    }
+    applyPatientHomeDestination();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRoutingFields, destinationType, booking?.patient_report_id]);
+
   const onDestinationChange = (value) => {
     setDestinationType(value);
     const def = medicationDefaultForDestination(value);
     if (def !== null) setMedicationEligible(def);
-    if (value === 'house') setHospitalPlace(null);
+    if (value === 'house') {
+      setHospitalPlace(null);
+      applyPatientHomeDestination();
+    } else {
+      setHomeLoadHint(null);
+    }
+  };
+
+  const applyDestinationTypeForClinic = (clinic) => {
+    if (!clinic) return;
+    const destType = destinationTypeForClinic(clinic);
+    setDestinationType(destType);
+    const def = medicationDefaultForDestination(destType);
+    if (def !== null) setMedicationEligible(def);
   };
 
   const pickClinicDestination = (place) => {
@@ -162,6 +240,13 @@ const MissionClinicalCard = ({
       return;
     }
     setHospitalPlace(place);
+
+    if (place.clinicId) {
+      const clinic = clinicOptions.find((c) => String(c.id) === String(place.clinicId));
+      applyDestinationTypeForClinic(clinic);
+      return;
+    }
+
     if (!destinationType || destinationType === 'house') {
       setDestinationType('private_hospital');
       const def = medicationDefaultForDestination('private_hospital');
@@ -197,11 +282,17 @@ const MissionClinicalCard = ({
         const dLng = hospitalPlace?.longitude;
         const hasCoords = Number.isFinite(dLat) && Number.isFinite(dLng);
 
-        if (isHospitalDestinationType(destinationType)) {
+        if (destinationType === 'house') {
           if (!name || !hasCoords) {
             alert(
-              'Pick a clinic with available beds or search Google Maps for a hospital.'
+              homeLoadHint ||
+                'Patient has no home address saved. Ask them to add it in the patient app under Profile → Home address.'
             );
+            return;
+          }
+        } else if (isHospitalDestinationType(destinationType)) {
+          if (!name || !hasCoords) {
+            alert('Pick a clinic with available beds or search Google Maps.');
             return;
           }
         }
@@ -211,12 +302,15 @@ const MissionClinicalCard = ({
         payload.medication_service_eligible = medicationEligible;
         payload.destination_clinic_id =
           destinationType === 'house' ? null : hospitalPlace?.clinicId || null;
-        payload.destination_latitude =
-          destinationType === 'house' || !hasCoords ? null : dLat;
-        payload.destination_longitude =
-          destinationType === 'house' || !hasCoords ? null : dLng;
+        payload.destination_latitude = !hasCoords ? null : dLat;
+        payload.destination_longitude = !hasCoords ? null : dLng;
       }
-      const { error } = await supabase.from('bookings').update(payload).eq('id', booking.id);
+      const { data: updated, error } = await supabase
+        .from('bookings')
+        .update(payload)
+        .eq('id', booking.id)
+        .select('*')
+        .single();
       if (error) throw error;
 
       const { error: syncError } = await syncPatientReportClinical(booking, payload);
@@ -224,6 +318,10 @@ const MissionClinicalCard = ({
         throw new Error(
           `${syncError.message} (booking saved; run patient_reports_clinic_update.sql in Supabase to sync patient_reports.)`
         );
+      }
+
+      if (updated?.destination_clinic_id) {
+        void broadcastInboundTransfer(supabase, updated);
       }
 
       if (onSaved) onSaved();
@@ -243,7 +341,7 @@ const MissionClinicalCard = ({
   const routingOnly = showRoutingFields && !showIntakeFields;
   const ambulanceDispatched = Boolean(booking?.driver_id);
   const patientSecured = booking?.status === 'Picked Up';
-  const incidentAddress = booking.location || booking.emergency_type || null;
+  const incidentAddress = booking.location || null;
   const hint =
     compact
       ? null
@@ -268,7 +366,7 @@ const MissionClinicalCard = ({
             {routingOnly ? 'Destination' : 'Clinical record'}
           </span>
           <h3 className="mission-clinical-card__title">
-            {routingOnly ? 'Hospital & destination' : 'Dispatch record'}
+            {routingOnly ? 'Destination' : 'Dispatch record'}
           </h3>
           {hint ? <p className="mission-clinical-card__hint">{hint}</p> : null}
         </header>
@@ -282,13 +380,16 @@ const MissionClinicalCard = ({
                 {!compact ? (
                   <h4 className="mission-clinical-section__title">Caller details</h4>
                 ) : null}
+                {booking.patient_report_id ? (
+                  <PatientReportIntakeSummary booking={booking} compact={compact} />
+                ) : null}
                 <div className="mission-clinical-field">
-                  <label className="field-label">{compact ? 'Patient ID' : 'Patient ID (NRIC / hospital no.)'}</label>
+                  <label className="field-label">{compact ? 'Patient ID' : 'Patient ID (NRIC / patient no.)'}</label>
                   <input
                     className="modern-input"
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
-                    placeholder="NRIC or hospital no."
+                    placeholder="NRIC or patient no."
                   />
                   <button
                     type="button"
@@ -358,13 +459,19 @@ const MissionClinicalCard = ({
                   patientLat={booking.latitude}
                   patientLng={booking.longitude}
                   selectedClinicId={hospitalPlace?.clinicId}
-                  dispatchClinicId={booking.assigned_clinic_id}
-                  disabled={destinationType === 'house'}
+                  dispatchClinicId={viewerClinicId ?? booking.assigned_clinic_id}
+                  disabled={destinationType === 'house' || !editable}
                   onSelectClinic={pickClinicDestination}
                 />
+                {clinicLoadError ? (
+                  <p className="mission-clinical-callout">
+                    Could not load clinic bed data ({clinicLoadError}). Run{' '}
+                    <code>web-app/supabase/clinics_bed_availability.sql</code> in Supabase SQL Editor.
+                  </p>
+                ) : null}
                 <div className="mission-clinical-field mission-clinical-field--maps-fallback">
                   {!compact ? (
-                    <label className="field-label">Other hospital (Google Maps)</label>
+                    <label className="field-label">Other clinic (Google Maps)</label>
                   ) : null}
                   <HospitalDestinationField
                     bookingId={booking.id}
@@ -391,6 +498,21 @@ const MissionClinicalCard = ({
                     ))}
                   </select>
                 </div>
+                {destinationType === 'house' ? (
+                  <div className="mission-clinical-field">
+                    <label className="field-label">Patient home</label>
+                    {hospitalPlace?.source === 'home' ? (
+                      <p className="mission-clinical-callout" style={{ marginTop: 0 }}>
+                        {hospitalPlace.address || hospitalPlace.name}
+                      </p>
+                    ) : (
+                      <p className="mission-clinical-callout mission-clinical-callout--muted" style={{ marginTop: 0 }}>
+                        {homeLoadHint ||
+                          'Select House / home above to load the address from the patient profile.'}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
                 <label className="mission-clinical-checkbox">
                   <input
                     type="checkbox"
@@ -401,7 +523,7 @@ const MissionClinicalCard = ({
                 </label>
                 {!compact && !medicationEligible && destinationType && destinationType !== 'public_hospital' ? (
                   <p className="mission-clinical-callout">
-                    House and private hospital trips often cannot receive medication from this clinic.
+                    House and private trips often cannot receive medication from this clinic.
                   </p>
                 ) : null}
               </section>
@@ -425,6 +547,9 @@ const MissionClinicalCard = ({
                 style={{ paddingTop: 0, marginTop: 0, borderTop: 'none' }}
               >
                 <p className="mission-clinical-readonly__block-title">Caller details</p>
+                {booking.patient_report_id ? (
+                  <PatientReportIntakeSummary booking={booking} />
+                ) : null}
                 <ReadonlyRow label="Patient ID" value={booking.patient_id || '—'} />
                 {incidentAddress ? <ReadonlyRow label="Pickup" value={incidentAddress} /> : null}
               </div>
@@ -456,7 +581,7 @@ const MissionClinicalCard = ({
             {showRoutingFields && (
               <div className="mission-clinical-readonly__block">
                 <p className="mission-clinical-readonly__block-title">Destination</p>
-                <ReadonlyRow label="Hospital" value={booking.hospital_name || '—'} />
+                <ReadonlyRow label="Facility" value={booking.hospital_name || '—'} />
                 <ReadonlyRow
                   label="Source"
                   value={

@@ -20,17 +20,18 @@ export function toKm(lat1, lng1, lat2, lng2) {
 }
 
 /**
- * Registered clinics reporting free beds, sorted by most available then nearest.
+ * Registered clinics with bed totals configured (includes full / 0-free).
  */
-export function listClinicsWithBeds(clinics, { patientLat, patientLng } = {}) {
+export function listClinicsForBedPicker(clinics, { patientLat, patientLng } = {}) {
   const hasPatient =
     Number.isFinite(patientLat) && Number.isFinite(patientLng);
 
   const rows = (clinics || [])
     .filter((c) => clinicHasMapPosition(c))
     .map((c) => {
-      const available = clinicAvailableBeds(c);
-      if (available == null || available <= 0) return null;
+      const cap = Number(c?.bed_capacity ?? 0);
+      if (!Number.isFinite(cap) || cap <= 0) return null;
+      const available = clinicAvailableBeds(c) ?? 0;
       const pos = clinicMapPosition(c);
       const distanceKm = hasPatient
         ? toKm(patientLat, patientLng, pos.lat, pos.lng)
@@ -39,17 +40,48 @@ export function listClinicsWithBeds(clinics, { patientLat, patientLng } = {}) {
         clinic: c,
         available,
         distanceKm,
+        hasFree: available > 0,
       };
     })
     .filter(Boolean);
 
   rows.sort((a, b) => {
+    if (a.hasFree !== b.hasFree) return a.hasFree ? -1 : 1;
     if (b.available !== a.available) return b.available - a.available;
     if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
     return (a.clinic.name || '').localeCompare(b.clinic.name || '');
   });
 
   return rows;
+}
+
+/**
+ * Registered clinics reporting free beds, sorted by most available then nearest.
+ */
+export function listClinicsWithBeds(clinics, options = {}) {
+  return listClinicsForBedPicker(clinics, options).filter((row) => row.hasFree);
+}
+
+/** Why the bed picker might look empty — for clinic dispatch UI hints. */
+export function explainClinicsWithBedsEmpty(clinics) {
+  const list = clinics || [];
+  const withCoords = list.filter((c) => clinicHasMapPosition(c));
+  const withBedTotals = withCoords.filter((c) => Number(c?.bed_capacity ?? 0) > 0);
+  const withFree = withBedTotals.filter((c) => (clinicAvailableBeds(c) ?? 0) > 0);
+
+  if (list.length === 0) {
+    return 'No clinics loaded. Refresh the page or check your Supabase connection.';
+  }
+  if (withCoords.length === 0) {
+    return 'Registered clinics need a map location. Open Settings → Facility Location and save an address pin for each clinic.';
+  }
+  if (withBedTotals.length === 0) {
+    return 'No clinic has bed totals yet. Open Beds in the side menu, set Total to at least 1, and click Save.';
+  }
+  if (withFree.length === 0) {
+    return 'Clinics are reporting beds but none are free. Open Beds and lower In use, or increase Total, then Save.';
+  }
+  return null;
 }
 
 export function clinicToHospitalPlace(clinic) {
@@ -62,6 +94,7 @@ export function clinicToHospitalPlace(clinic) {
     latitude: lat,
     longitude: lng,
     clinicId: clinic.id,
+    clinicType: clinic.clinic_type ?? null,
     source: 'registered',
   };
 }

@@ -954,6 +954,21 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   color: #475569;
 }
 
+.clinics-with-beds__empty--secondary {
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+
+.clinics-with-beds__item--full {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.clinics-with-beds__beds--full {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .clinics-with-beds__empty {
   margin: 0;
   font-size: 0.75rem;

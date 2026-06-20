@@ -37,7 +37,7 @@ const HospitalDestinationField = ({
         inputId={`hospital-google-${bookingId}`}
         value={googleValue}
         disabled={disabled}
-        placeholder={compact ? 'Search Google Maps…' : 'Search hospital name…'}
+        placeholder={compact ? 'Search Google Maps…' : 'Search clinic name…'}
         hideSummary
         showSelectionInInput={false}
         onPlaceSelected={selectGooglePlace}

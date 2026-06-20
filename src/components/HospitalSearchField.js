@@ -14,7 +14,7 @@ const HospitalSearchField = ({
   value,
   onPlaceSelected,
   inputClassName = 'modern-input',
-  placeholder = 'Search hospital name…',
+  placeholder = 'Search clinic name…',
   disabled = false,
   inputId,
   hideSummary = false,
@@ -23,7 +23,7 @@ const HospitalSearchField = ({
   if (!GOOGLE_MAPS_API_KEY) {
     return (
       <p className="facility-muted" style={{ fontSize: '0.85rem' }}>
-        Add <code>REACT_APP_GOOGLE_MAPS_API_KEY</code> to <code>web-app/.env</code> to search hospitals.
+        Add <code>REACT_APP_GOOGLE_MAPS_API_KEY</code> to <code>web-app/.env</code> to search clinics.
       </p>
     );
   }

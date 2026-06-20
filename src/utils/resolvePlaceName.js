@@ -32,7 +32,7 @@ export function resolveGooglePlaceName(place, suggestionText = '') {
   }
 
   if (rawName && !looksLikeStreetOrNumber(rawName)) return rawName;
-  return 'Selected hospital';
+  return 'Selected clinic';
 }
 
 /** Text shown in the search box after picking a suggestion — usually the hospital name. */

@@ -147,8 +147,16 @@ create policy bookings_select_facility_patient_active on public.bookings
     and patient_report_id is not null
     and status in ('Pending', 'Assigned', 'Accepted', 'En Route', 'Picked Up')
     and (
-      assigned_clinic_id is null
+      (
+        assigned_clinic_id is null
+        and driver_id is null
+      )
       or assigned_clinic_id::text = public.rls_session_clinic_id()
+      or (
+        assigned_clinic_id is null
+        and driver_id is not null
+        and public.rls_driver_belongs_to_clinic(driver_id, public.rls_session_clinic_id())
+      )
     )
   );
 
@@ -160,11 +168,20 @@ create policy bookings_update_facility_patient_active on public.bookings
     and patient_report_id is not null
     and status in ('Pending', 'Assigned', 'Accepted', 'En Route', 'Picked Up')
     and (
-      assigned_clinic_id is null
+      (
+        assigned_clinic_id is null
+        and driver_id is null
+      )
       or assigned_clinic_id::text = public.rls_session_clinic_id()
+      or (
+        assigned_clinic_id is null
+        and driver_id is not null
+        and public.rls_driver_belongs_to_clinic(driver_id, public.rls_session_clinic_id())
+      )
     )
   )
   with check (
     public.rls_clinic_access_approved()
     and status in ('Pending', 'Assigned', 'Accepted', 'En Route', 'Picked Up', 'Completed')
+    and assigned_clinic_id::text = public.rls_session_clinic_id()
   );

@@ -20,7 +20,8 @@ import SettingsDriverRoster from './SettingsDriverRoster';
 import SettingsHub from './SettingsHub';
 import SettingsSubpage from './SettingsSubpage';
 import ClinicNotificationBell from './ClinicNotificationBell';
-import { scopeBookingToClinic } from '../utils/scopeClinicBooking';
+import { Toaster } from 'react-hot-toast';
+import { scopeBookingToClinic, clinicOwnsPatientMission } from '../utils/scopeClinicBooking';
 import { syncPatientReportClinical } from '../utils/syncPatientReportClinical';
 import {
   ACTIVE_CLINIC_MISSION_STATUSES,
@@ -30,6 +31,12 @@ import {
   isScheduledBooking,
   patientReportMissionDisplay,
 } from '../constants/missionClinical';
+import { resolveBookingMapDestination } from '../utils/clinicRouting';
+import {
+  mergeBookings,
+  mergeDrivers,
+} from '../utils/inboundTransferSync';
+import { pushClinicAlert } from '../utils/clinicNotificationBus';
 import './Dashboard1.css';
 import '../App.css';
 
@@ -115,6 +122,8 @@ const FacilityPortal = () => {
   const [view, setView] = useState('incoming');
   const [clinic, setClinic] = useState(null);
   const [drivers, setDrivers] = useState([]);
+  /** Ambulance units from other clinics — shown on map/fleet only, not roster. */
+  const [inboundDrivers, setInboundDrivers] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [allClinics, setAllClinics] = useState([]);
   const [removingDriverId, setRemovingDriverId] = useState(null);
@@ -137,6 +146,13 @@ const FacilityPortal = () => {
   const [settingsSection, setSettingsSection] = useState(null);
   const initialPassRef = useRef(true);
   const toastTimerRef = useRef(null);
+  const driversRef = useRef([]);
+  const seenInboundIdsRef = useRef(new Set());
+  const inboundAlertsReadyRef = useRef(false);
+
+  useEffect(() => {
+    driversRef.current = drivers;
+  }, [drivers]);
 
   const mapsAuthFailed = useMapsAuthFailure();
   const { isLoaded, loadError } = useJsApiLoader({
@@ -213,7 +229,6 @@ const FacilityPortal = () => {
     );
     setClinicPhoneEdit((clinicRow.phone || '').trim());
 
-    // Service role bypasses RLS — clinic JWT often has no clinic_id even when resolveClinicId works.
     const driverDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
     const { data: drv, error: drvErr } = await driverDb
       .from('drivers')
@@ -221,7 +236,6 @@ const FacilityPortal = () => {
       .eq('base_clinic_id', clinicId);
     if (drvErr) {
       console.error('drivers fetch:', drvErr);
-      showToast('error', `Could not load drivers: ${drvErr.message}`);
     }
     const bookingDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
     const [{ data: activeBookings }, { data: completedBookings }, { data: scheduledBookings }, { data: clinicRows }] =
@@ -238,7 +252,7 @@ const FacilityPortal = () => {
           .select('*')
           .eq('status', SCHEDULED_BOOKING_STATUS)
           .or(`assigned_clinic_id.eq.${clinicId},assigned_clinic_id.is.null`),
-        supabase.from('clinics').select('id, name, latitude, longitude, address, specialty').order('name'),
+        supabase.from('clinics').select('id, name, latitude, longitude, address, clinic_type, bed_capacity, beds_occupied').order('name'),
       ]);
 
     const bookingById = new Map();
@@ -247,6 +261,7 @@ const FacilityPortal = () => {
     );
 
     if (drv) setDrivers(drv);
+    setInboundDrivers([]);
     setBookings([...bookingById.values()]);
     setAllClinics(clinicRows || []);
 
@@ -255,6 +270,59 @@ const FacilityPortal = () => {
       initialPassRef.current = false;
     }
   }, [navigate]);
+
+  /** Inbound transfers: postgres UPDATE often invisible to receiving clinic (RLS on old row). */
+  const refreshInboundTransfers = useCallback(async () => {
+    const clinicId = selectedFacilityId || mapScopeId;
+    if (!clinicId) return;
+
+    const { data: inbound, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('destination_clinic_id', String(clinicId))
+      .in('status', ACTIVE_CLINIC_MISSION_STATUSES);
+
+    if (error) {
+      console.error('inbound transfers:', error);
+      return;
+    }
+    if (!inbound?.length) {
+      setInboundDrivers([]);
+      return;
+    }
+
+    if (!inboundAlertsReadyRef.current) {
+      inbound.forEach((b) => seenInboundIdsRef.current.add(b.id));
+      inboundAlertsReadyRef.current = true;
+    } else {
+      for (const b of inbound) {
+        if (seenInboundIdsRef.current.has(b.id)) continue;
+        seenInboundIdsRef.current.add(b.id);
+        pushClinicAlert({
+          key: `transfer-inbound-${b.id}-${b.destination_clinic_id}`,
+          type: 'emergency',
+          title: 'Inbound patient transfer',
+          body: `${b.patient_name || 'Patient'} is being routed to your clinic${b.hospital_name ? ` (${b.hospital_name})` : ''}`,
+          meta: { view: 'incoming', bookingId: b.id, focusMap: true },
+        });
+      }
+    }
+
+    setBookings((prev) => mergeBookings(prev, inbound));
+
+    const driverIds = [...new Set(inbound.map((b) => b.driver_id).filter(Boolean))];
+    const ownDriverIds = new Set(driversRef.current.map((d) => d.id));
+    const externalDriverIds = driverIds.filter((id) => !ownDriverIds.has(id));
+
+    if (!externalDriverIds.length) {
+      setInboundDrivers([]);
+      return;
+    }
+
+    const driverDb = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
+    const { data: extraDrivers } = await driverDb.from('drivers').select('*').in('id', externalDriverIds);
+    setInboundDrivers(extraDrivers || []);
+  }, [selectedFacilityId, mapScopeId]);
 
   useEffect(() => {
     fetchAll();
@@ -270,15 +338,70 @@ const FacilityPortal = () => {
     };
   }, [fetchAll]);
 
+  useEffect(() => {
+    const clinicId = selectedFacilityId || mapScopeId;
+    if (!clinicId) return undefined;
+
+    refreshInboundTransfers();
+    const interval = setInterval(refreshInboundTransfers, 5000);
+
+    const inboundChannel = supabase
+      .channel(`clinic-inbound-${clinicId}`)
+      .on('broadcast', { event: 'inbound_transfer' }, ({ payload }) => {
+        const booking = payload?.booking;
+        if (!booking) return;
+        setBookings((prev) => mergeBookings(prev, [booking]));
+        pushClinicAlert({
+          key: `transfer-inbound-${booking.id}-${booking.destination_clinic_id}`,
+          type: 'emergency',
+          title: 'Inbound patient transfer',
+          body: `${booking.patient_name || 'Patient'} is being routed to your clinic${booking.hospital_name ? ` (${booking.hospital_name})` : ''}`,
+          meta: { view: 'incoming', bookingId: booking.id, focusMap: true },
+        });
+        void refreshInboundTransfers();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(inboundChannel);
+    };
+  }, [selectedFacilityId, mapScopeId, refreshInboundTransfers]);
+
   const selectedFacility = useMemo(() => {
     if (!clinic || String(clinic.id) !== String(selectedFacilityId)) return clinic;
     return clinic;
   }, [clinic, selectedFacilityId]);
 
+  /** Own clinic roster + inbound transporting units (map / fleet / incoming only). */
+  const fleetDrivers = useMemo(
+    () => mergeDrivers(drivers, inboundDrivers),
+    [drivers, inboundDrivers]
+  );
+
   const focusMap = useCallback((lat, lng, { setZoom = false } = {}) => {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     setMapFocus({ lat, lng, timestamp: Date.now(), setZoom });
   }, []);
+
+  const handleNotificationNavigate = useCallback(
+    (meta) => {
+      if (meta?.view) setView(meta.view);
+      if (!meta?.focusMap || !meta?.bookingId) return;
+      const b = bookings.find((x) => x.id === meta.bookingId);
+      if (!b) return;
+      const driver = b.driver_id ? fleetDrivers.find((d) => d.id === b.driver_id) : null;
+      const dLat = Number(driver?.current_lat);
+      const dLng = Number(driver?.current_lng);
+      if (Number.isFinite(dLat) && Number.isFinite(dLng)) {
+        focusMap(dLat, dLng, { setZoom: true });
+        return;
+      }
+      const dest = resolveBookingMapDestination(b, allClinics);
+      if (dest) focusMap(dest.lat, dest.lng, { setZoom: true });
+    },
+    [bookings, fleetDrivers, allClinics, focusMap]
+  );
 
   // Map pin when editing facility site in Settings.
   useEffect(() => {
@@ -296,10 +419,10 @@ const FacilityPortal = () => {
 
     const pickDriver = () => {
       if (trackedDriverId) {
-        return drivers.find((d) => d.id === trackedDriverId) ?? null;
+        return fleetDrivers.find((d) => d.id === trackedDriverId) ?? null;
       }
       return (
-        drivers.find((d) => {
+        fleetDrivers.find((d) => {
           const onMission = bookings.some(
             (b) => b.driver_id === d.id && activeMissionStatuses.includes(b.status)
           );
@@ -316,18 +439,18 @@ const FacilityPortal = () => {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     focusMap(lat, lng, { setZoom: false });
-  }, [view, drivers, bookings, trackedDriverId, activeMissionStatuses, focusMap]);
+  }, [view, fleetDrivers, bookings, trackedDriverId, activeMissionStatuses, focusMap]);
 
   useEffect(() => {
-    if (view === 'fleet' && !trackedDriverId && drivers.length > 0) {
-      const firstOnMission = drivers.find((d) =>
+    if (view === 'fleet' && !trackedDriverId && fleetDrivers.length > 0) {
+      const firstOnMission = fleetDrivers.find((d) =>
         bookings.some((b) => b.driver_id === d.id && activeMissionStatuses.includes(b.status))
       );
       if (firstOnMission) setTrackedDriverId(firstOnMission.id);
     }
     if (view === 'settings' || view === 'beds' || view === 'scheduled') setTrackedDriverId(null);
     if (view !== 'settings') setSettingsSection(null);
-  }, [view, drivers, bookings, trackedDriverId, activeMissionStatuses]);
+  }, [view, fleetDrivers, bookings, trackedDriverId, activeMissionStatuses]);
 
   const showToast = (type, text) => {
     setToast({ type, text });
@@ -356,18 +479,17 @@ const FacilityPortal = () => {
     const useFacilityDest =
       fLat != null && fLng != null && Number.isFinite(Number(fLat)) && Number.isFinite(Number(fLng));
 
-    const scopedToClinic = (b) => {
-      if (!b.assigned_clinic_id) return true;
-      return String(b.assigned_clinic_id) === clinicId;
-    };
-
     const patientActive = bookings
       .filter(
-        (b) => b.patient_report_id && scopedToClinic(b) && isActiveClinicMission(b.status)
+        (b) =>
+          b.patient_report_id &&
+          scopeBookingToClinic(b, clinicId, driverIdsAtClinic) &&
+          clinicOwnsPatientMission(b, clinicId, driverIdsAtClinic) &&
+          isActiveClinicMission(b.status)
       )
       .map((b) => {
         const { statusLabel, etaLabel } = patientReportMissionDisplay(b);
-        const driver = drivers.find((d) => d.id === b.driver_id);
+        const driver = fleetDrivers.find((d) => d.id === b.driver_id);
         return {
           id: b.id,
           kind: 'patient_report',
@@ -376,17 +498,32 @@ const FacilityPortal = () => {
           eta: etaLabel,
           driverName: driver?.name || null,
           booking: b,
+          ownsMission: clinicOwnsPatientMission(b, clinicId, driverIdsAtClinic),
         };
       });
 
+    const patientActiveIds = new Set(patientActive.map((m) => m.id));
+
+    // Inbound transfers from other clinics only — not own patient-report missions headed to self.
     const transfersInbound = bookings
       .filter(
         (b) =>
           String(b.destination_clinic_id) === clinicId &&
-          ['Assigned', 'Accepted', 'En Route', 'Picked Up'].includes(b.status)
+          ['Assigned', 'Accepted', 'En Route', 'Picked Up'].includes(b.status) &&
+          !(b.patient_report_id && String(b.assigned_clinic_id) === clinicId) &&
+          !patientActiveIds.has(b.id)
       )
       .map((b) => {
-        const driver = drivers.find((d) => d.id === b.driver_id);
+        const driver = fleetDrivers.find((d) => d.id === b.driver_id);
+        const senderClinic = b.assigned_clinic_id
+          ? allClinics.find((c) => String(c.id) === String(b.assigned_clinic_id))
+          : null;
+        const sourceClinicName =
+          senderClinic?.name ||
+          (driver?.base_clinic_id
+            ? allClinics.find((c) => String(c.id) === String(driver.base_clinic_id))?.name
+            : null) ||
+          'another clinic';
         const destLat = useFacilityDest ? Number(fLat) : Number(b.latitude);
         const destLng = useFacilityDest ? Number(fLng) : Number(b.longitude);
         let eta = 'unavailable';
@@ -403,15 +540,17 @@ const FacilityPortal = () => {
           id: b.id,
           kind: 'transfer',
           patientName: b.patient_name || 'Unknown patient',
-          status: b.status || 'Unknown',
+          status: 'Inbound transfer',
           eta,
           driverName: driver?.name || 'Ambulance unit',
+          sourceClinicName,
           booking: b,
+          ownsMission: false,
         };
       });
 
     return [...patientActive, ...transfersInbound];
-  }, [bookings, drivers, selectedFacility]);
+  }, [bookings, fleetDrivers, selectedFacility, driverIdsAtClinic, allClinics]);
 
   const archivedRecordCount = useMemo(() => {
     if (!selectedFacility) return 0;
@@ -426,9 +565,21 @@ const FacilityPortal = () => {
     if (!ambulanceDriver) {
       return showToast('error', 'Put a driver on Available in the mobile app first.');
     }
+    const clinicId = selectedFacility?.id;
+    if (!clinicId) {
+      return showToast('error', 'Clinic not loaded. Refresh and try again.');
+    }
+
     const missionId = mission.id ?? mission.booking?.id;
     const { data: fresh } = await supabase.from('bookings').select('*').eq('id', missionId).maybeSingle();
     const b = fresh ?? mission.booking ?? mission;
+
+    if (b.assigned_clinic_id && String(b.assigned_clinic_id) !== String(clinicId)) {
+      return showToast('error', 'Another clinic has already claimed this report.');
+    }
+    if (b.driver_id) {
+      return showToast('error', 'An ambulance has already been dispatched for this report.');
+    }
 
     let patientId = b.patient_id?.trim() || '';
     if (!patientId) {
@@ -440,15 +591,34 @@ const FacilityPortal = () => {
     }
 
     try {
-      const { error } = await supabase
+      const { data: claimed, error } = await supabase
         .from('bookings')
         .update({
           driver_id: ambulanceDriver.id,
           status: 'Pending',
           patient_id: patientId,
+          assigned_clinic_id: clinicId,
         })
-        .eq('id', missionId);
+        .eq('id', missionId)
+        .is('assigned_clinic_id', null)
+        .is('driver_id', null)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!claimed) {
+        const { data: after } = await supabase
+          .from('bookings')
+          .select('assigned_clinic_id, driver_id')
+          .eq('id', missionId)
+          .maybeSingle();
+        if (after?.assigned_clinic_id || after?.driver_id) {
+          return showToast('error', 'Another clinic claimed this report first. Refresh incoming missions.');
+        }
+        return showToast(
+          'error',
+          'Could not dispatch — clinic permission blocked the claim. Run bookings_claimed_clinic_scope.sql in Supabase, then refresh.'
+        );
+      }
 
       const { error: syncError } = await syncPatientReportClinical(b, { patient_id: patientId });
       if (syncError) {
@@ -605,6 +775,15 @@ const FacilityPortal = () => {
 
   return (
     <div className="app-shell facility-portal-map-shell">
+      <Toaster
+        position="top-right"
+        containerClassName="clinic-toaster"
+        gutter={10}
+        toastOptions={{
+          className: 'clinic-toaster-item',
+          style: { background: 'transparent', boxShadow: 'none', padding: 0 },
+        }}
+      />
       <div className="map-background">
         <MapComponent
           previewLocation={dispatchPreviewLocation || scheduledPreviewLocation}
@@ -612,6 +791,9 @@ const FacilityPortal = () => {
           showHospitals
           showTraffic={trafficEnabled}
           facilityClinicId={mapScopeId}
+          liveBookings={bookings}
+          liveDrivers={fleetDrivers}
+          liveClinics={allClinics}
         />
         <button
           type="button"
@@ -662,9 +844,7 @@ const FacilityPortal = () => {
                 <ClinicNotificationBell
                   clinicId={String(selectedFacility.id)}
                   driverIds={driverIdsAtClinic}
-                  onNavigate={(meta) => {
-                    if (meta?.view) setView(meta.view);
-                  }}
+                  onNavigate={handleNotificationNavigate}
                 />
               ) : null}
               <button type="button" className="status-pill status-pill--subtle">
@@ -695,7 +875,7 @@ const FacilityPortal = () => {
                 className={`nav-link ${view === 'fleet' ? 'active' : ''}`}
                 onClick={() => {
                   setView('fleet');
-                  const onMission = drivers.find((d) =>
+                  const onMission = fleetDrivers.find((d) =>
                     bookings.some(
                       (b) =>
                         b.driver_id === d.id &&
@@ -857,7 +1037,8 @@ const FacilityPortal = () => {
 
               {view === 'fleet' && (
                 <DriverFleetDashboard
-                  drivers={drivers}
+                  drivers={fleetDrivers}
+                  rosterDrivers={drivers}
                   bookings={bookings}
                   clinic={selectedFacility}
                   clinics={allClinics}
@@ -1000,6 +1181,7 @@ const FacilityPortal = () => {
                       <IncomingMissionCard
                         key={m.id}
                         mission={m}
+                        viewerClinicId={selectedFacility?.id ? String(selectedFacility.id) : null}
                         onDispatch={dispatchPatientMission}
                         onSaved={() => {
                           fetchAll();

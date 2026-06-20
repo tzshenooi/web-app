@@ -7,6 +7,7 @@ import { mergeClinicsForActiveMissions, resolveBookingMapDestination } from '../
 
 const containerStyle = { width: '100%', height: '100%' };
 const initialCenter = { lat: 5.5135, lng: 100.5400 };
+const ACTIVE_MAP_STATUSES = ['Pending', 'Accepted', 'Assigned', 'En Route', 'Picked Up'];
 
 /** Patient scene vs clinic: after pickup, route + marker use the destination clinic. */
 function getBookingDestination(b, clinicsList) {
@@ -22,6 +23,10 @@ const MapComponent = ({
   showTraffic,
   facilityClinicId = null,
   dispatchClinicId = null,
+  /** When set, use portal state (includes inbound drivers merged across clinics). */
+  liveBookings = null,
+  liveDrivers = null,
+  liveClinics = null,
 }) => {
   const [map, setMap] = useState(null);
   const [drivers, setDrivers] = useState([]);
@@ -46,16 +51,29 @@ const MapComponent = ({
     return { lat, lng };
   })(); 
 
+  const usesLivePortalData =
+    facilityClinicId != null && liveBookings != null && liveDrivers != null && liveClinics != null;
+
   const syncMapData = useCallback(async () => {
-    const { data: drv } = await supabase.from('drivers').select('*');
-    
-    // Keep mission visible across acknowledge -> en route -> pickup phases.
-    const { data: bkg } = await supabase
-      .from('bookings')
-      .select('*')
-      .in('status', ['Pending', 'Accepted', 'Assigned', 'En Route', 'Picked Up']); 
-      
-    const { data: clinicRows } = await supabase.from('clinics').select('*');
+    let drv;
+    let bkg;
+    let clinicRows;
+
+    if (usesLivePortalData) {
+      drv = liveDrivers;
+      bkg = liveBookings.filter((row) => ACTIVE_MAP_STATUSES.includes(row.status));
+      clinicRows = liveClinics;
+    } else {
+      const { data: fetchedDrv } = await supabase.from('drivers').select('*');
+      const { data: fetchedBkg } = await supabase
+        .from('bookings')
+        .select('*')
+        .in('status', ACTIVE_MAP_STATUSES);
+      const { data: fetchedClinics } = await supabase.from('clinics').select('*');
+      drv = fetchedDrv || [];
+      bkg = fetchedBkg || [];
+      clinicRows = fetchedClinics || [];
+    }
 
     let nextDrv = drv || [];
     let nextBkg = bkg || [];
@@ -73,25 +91,57 @@ const MapComponent = ({
     } else if (facilityClinicId) {
       const cid = String(facilityClinicId);
       nextClinics = nextClinics.filter((h) => String(h.id) === cid);
-      nextDrv = (drv || []).filter((d) => d.base_clinic_id != null && String(d.base_clinic_id) === cid);
+      nextDrv = (drv || []).filter(
+        (d) => d.base_clinic_id != null && String(d.base_clinic_id) === cid
+      );
       const clinicDriverIds = new Set(nextDrv.map((d) => d.id));
       const inbound = (bkg || []).filter((b) => String(b.destination_clinic_id) === cid);
       const outbound = (bkg || []).filter((b) => b.driver_id && clinicDriverIds.has(b.driver_id));
       const merged = [...inbound, ...outbound];
       nextBkg = merged.filter((b, i, arr) => arr.findIndex((x) => x.id === b.id) === i);
+
+      // Inbound transfers: show the transporting ambulance even if it belongs to another clinic.
+      const inboundDriverIds = new Set(
+        inbound.map((b) => b.driver_id).filter(Boolean)
+      );
+      const driversById = new Map(nextDrv.map((d) => [d.id, d]));
+      for (const d of drv || []) {
+        if (inboundDriverIds.has(d.id)) driversById.set(d.id, d);
+      }
+      nextDrv = [...driversById.values()];
+
       nextClinics = mergeClinicsForActiveMissions(nextClinics, clinicRows || [], nextBkg);
+      const clinicIds = new Set(nextClinics.map((c) => String(c.id)));
+      for (const b of inbound) {
+        const senderId = b.assigned_clinic_id ? String(b.assigned_clinic_id) : null;
+        if (senderId && !clinicIds.has(senderId)) {
+          const row = (clinicRows || []).find((c) => String(c.id) === senderId);
+          if (row) {
+            nextClinics.push(row);
+            clinicIds.add(senderId);
+          }
+        }
+      }
     }
 
     setDrivers(nextDrv);
     setBookings(nextBkg);
     setClinics(nextClinics);
-  }, [facilityClinicId, dispatchClinicId]);
+  }, [
+    facilityClinicId,
+    dispatchClinicId,
+    usesLivePortalData,
+    liveBookings,
+    liveDrivers,
+    liveClinics,
+  ]);
 
   useEffect(() => {
     syncMapData();
+    if (usesLivePortalData) return undefined;
     const interval = setInterval(syncMapData, 3000);
     return () => clearInterval(interval);
-  }, [syncMapData]);
+  }, [syncMapData, usesLivePortalData]);
 
   // Pan to focus point; only change zoom when requested (clinic / first driver lock).
   useEffect(() => {
@@ -147,7 +197,7 @@ const MapComponent = ({
         if (!Number.isFinite(dest.lat) || !Number.isFinite(dest.lng)) return;
         requests.push({
           id: b.id,
-          origin: { lat: assigned.current_lat, lng: assigned.current_lng },
+          origin: { lat: Number(assigned.current_lat), lng: Number(assigned.current_lng) },
           destination: dest,
         });
       }
@@ -270,7 +320,9 @@ const MapComponent = ({
                 <p style={{ margin: '0 0 6px 0', fontSize: '12px', lineHeight: 1.35 }}>{selectedHospital.address}</p>
               ) : null}
               <p style={{ margin: 0, fontSize: '12px' }}>
-                {selectedHospital.specialty ? `Specialty: ${selectedHospital.specialty}` : 'Your clinic'}
+                {selectedHospital.clinic_type
+                  ? `Type: ${selectedHospital.clinic_type === 'public' ? 'Public' : 'Private'}`
+                  : 'Your clinic'}
               </p>
             </div>
           </InfoWindow>

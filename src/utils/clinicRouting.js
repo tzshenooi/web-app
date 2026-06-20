@@ -24,7 +24,7 @@ export function resolveBookingMapDestination(booking, clinicsList) {
       if (pos) {
         return {
           ...pos,
-          label: clinic?.name || booking.hospital_name || 'Hospital',
+          label: clinic?.name || booking.hospital_name || 'Clinic',
         };
       }
     }
@@ -35,7 +35,7 @@ export function resolveBookingMapDestination(booking, clinicsList) {
       return {
         lat: dLat,
         lng: dLng,
-        label: booking.hospital_name || 'Hospital',
+        label: booking.hospital_name || 'Clinic',
       };
     }
   }
@@ -74,4 +74,12 @@ export function matchClinicByName(clinics, name) {
 
 export function isHospitalDestinationType(type) {
   return type === 'public_hospital' || type === 'private_hospital';
+}
+
+/** Map clinic registration (`private` / `public`) → mission destination type. */
+export function destinationTypeForClinic(clinic) {
+  const t = (clinic?.clinic_type ?? '').toString().toLowerCase();
+  if (t === 'public') return 'public_hospital';
+  if (t === 'private') return 'private_hospital';
+  return 'private_hospital';
 }

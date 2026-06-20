@@ -10,7 +10,7 @@ const RegisterFacility = () => {
   const [clinicNames, setClinicNames] = useState([]);
   const [registering, setRegistering] = useState(false);
   const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', specialty: '', phone: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', clinicType: '', phone: '' });
   const [clinicLocation, setClinicLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
@@ -44,12 +44,15 @@ const RegisterFacility = () => {
   const registerFacility = async (e) => {
     e.preventDefault();
     const name = registerForm.name.trim();
-    const specialty = registerForm.specialty.trim();
+    const clinicType = registerForm.clinicType;
     const phone = registerForm.phone.trim();
     const email = account.email.trim();
     const { password } = account;
 
     if (!name) return showToast('error', 'Enter a clinic name.');
+    if (clinicType !== 'private' && clinicType !== 'public') {
+      return showToast('error', 'Select whether the clinic is private or public.');
+    }
     if (phoneDigits(phone).length < 8) {
       return showToast('error', 'Enter a valid clinic phone number (at least 8 digits).');
     }
@@ -101,7 +104,7 @@ const RegisterFacility = () => {
         name,
         email,
         phone,
-        specialty: specialty || 'General',
+        clinic_type: clinicType,
         auth_user_id: user.id,
         address: clinicLocation.address,
         latitude: clinicLocation.latitude,
@@ -119,10 +122,10 @@ const RegisterFacility = () => {
         if (clinicError.code === '23505') {
           return showToast('error', 'That clinic name or email is already registered.');
         }
-        if (clinicError.code === 'PGRST204' || /address|phone/i.test(clinicError.message || '')) {
+        if (clinicError.code === 'PGRST204' || /address|phone|clinic_type/i.test(clinicError.message || '')) {
           return showToast(
             'error',
-            'Database is missing required columns. Run web-app/supabase/clinics_address.sql and clinics_phone.sql in Supabase SQL Editor.'
+            'Database is missing required columns. Run web-app/supabase/clinics_address.sql, clinics_phone.sql, and clinics_clinic_type.sql in Supabase SQL Editor.'
           );
         }
         return showToast('error', clinicError.message);
@@ -141,7 +144,7 @@ const RegisterFacility = () => {
       }
 
       setAccount({ email: '', password: '', confirmPassword: '' });
-      setRegisterForm({ name: '', specialty: '', phone: '' });
+      setRegisterForm({ name: '', clinicType: '', phone: '' });
       setClinicLocation(null);
       setStep(1);
       navigate('/', { replace: true, state: { loginNotice: 'clinic_registered' } });
@@ -163,7 +166,7 @@ const RegisterFacility = () => {
           {step === 1 ? (
             <p>Sign-in email and password for the Clinic Portal.</p>
           ) : (
-            <p>Clinic name, specialty, contact phone, and address (used for the map pin). Patients call this number from the mobile app.</p>
+            <p>Clinic name, type, contact phone, and address (used for the map pin). Patients call this number from the mobile app.</p>
           )}
         </div>
 
@@ -233,15 +236,20 @@ const RegisterFacility = () => {
               />
             </div>
             <div className="auth-field">
-              <label htmlFor="reg-specialty">Specialty</label>
-              <input
-                id="reg-specialty"
+              <label htmlFor="reg-clinic-type">Clinic type</label>
+              <select
+                id="reg-clinic-type"
                 className="auth-input"
-                type="text"
-                value={registerForm.specialty}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, specialty: e.target.value }))}
-                placeholder="e.g. General"
-              />
+                value={registerForm.clinicType}
+                onChange={(e) => setRegisterForm((p) => ({ ...p, clinicType: e.target.value }))}
+                required
+              >
+                <option value="" disabled>
+                  Select private or public
+                </option>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
             </div>
             <div className="auth-field">
               <label htmlFor="reg-phone">Clinic phone</label>
@@ -266,11 +274,11 @@ const RegisterFacility = () => {
                 inputId="reg-address"
                 value={clinicLocation}
                 onPlaceSelected={setClinicLocation}
-                placeholder="Search street, building, or area…"
+                placeholder="Search clinic name, street, or area…"
                 disabled={registering}
               />
               <p className="facility-muted" style={{ marginTop: 6, fontSize: '0.8rem' }}>
-                Pick a suggestion so we can place your clinic on the map.
+                Pick a suggestion so we can place your clinic on the map. Try the clinic name, street, or a nearby landmark if nothing appears.
               </p>
             </div>
             <button type="submit" className="auth-submit" disabled={registering}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MissionClinicalCard from './MissionClinicalCard';
 import PatientReportAttachments from './PatientReportAttachments';
+import MissionDriverEvidence from './MissionDriverEvidence';
 
 /** Completed mission — name visible; tap to view full archived record (read-only). */
 const ArchiveMissionCard = ({ booking, driverName }) => {
@@ -35,6 +36,8 @@ const ArchiveMissionCard = ({ booking, driverName }) => {
             showRoutingFields
             showTimelineFields
           />
+
+          <MissionDriverEvidence booking={booking} />
 
           {booking.patient_report_id ? (
             <PatientReportAttachments patientReportId={booking.patient_report_id} />
