@@ -311,6 +311,60 @@ body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif
   margin-top: 0;
 }
 
+.scheduled-booking-card {
+  cursor: default;
+}
+
+.scheduled-booking-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.scheduled-booking-card__details {
+  margin-top: 4px;
+}
+
+.scheduled-booking-card__meta {
+  margin: 0;
+  padding: 4px 0 8px;
+  background: #f8fafc;
+  border: 1px solid #e8edf2;
+  border-radius: 10px;
+}
+
+.scheduled-booking-card__meta .mission-clinical-row {
+  padding: 10px 14px;
+}
+
+.scheduled-booking-card__meta .mission-clinical-row:first-child {
+  padding-top: 12px;
+}
+
+.scheduled-booking-card__meta .mission-clinical-row:last-child {
+  padding-bottom: 12px;
+}
+
+.scheduled-booking-card__dest-name {
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.scheduled-booking-card__assign {
+  margin: 12px 0 4px;
+}
+
+.scheduled-booking-card__assign-btn {
+  margin-top: 8px;
+}
+
+.scheduled-booking-card__actions {
+  margin-top: 12px;
+}
+
 .unit-card-new.expanded { background: #f8fafc; }
 .unit-card-new.priority-critical.expanded { background: #fff5f5; }
 .unit-card-new.priority-high.expanded { background: #fffbf0; }

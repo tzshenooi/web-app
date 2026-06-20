@@ -7,13 +7,24 @@ import {
   medicationDefaultForDestination,
   toDatetimeLocalValue,
 } from '../constants/missionClinical';
+import { isHospitalDestinationType } from '../utils/clinicRouting';
+import HospitalDestinationField from './HospitalDestinationField';
+import ClinicsWithBedsPanel from './ClinicsWithBedsPanel';
 
-const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLocationSelected }) => {
+const CreateScheduledBooking = ({
+  clinicId,
+  drivers = [],
+  clinics = [],
+  onBookingCreated,
+  onLocationSelected,
+  onDestinationSelected,
+}) => {
   const [patientName, setPatientName] = useState('');
   const [patientId, setPatientId] = useState('');
   const [location, setLocation] = useState(null);
-  const [hospitalName, setHospitalName] = useState('');
   const [destinationType, setDestinationType] = useState('');
+  const [hospitalPlace, setHospitalPlace] = useState(null);
+  const [houseDestination, setHouseDestination] = useState(null);
   const [medicationEligible, setMedicationEligible] = useState(true);
   const [scheduledAt, setScheduledAt] = useState('');
   const [isBedridden, setIsBedridden] = useState(true);
@@ -29,7 +40,7 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
     return toDatetimeLocalValue(d.toISOString());
   }, []);
 
-  const handlePlaceSelect = (place) => {
+  const handlePickupSelect = (place) => {
     if (!place?.geometry?.location) return;
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
@@ -37,6 +48,25 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
     const next = { address, lat, lng };
     setLocation(next);
     if (onLocationSelected) onLocationSelected({ lat, lng });
+  };
+
+  const handleHouseDestinationSelect = (place) => {
+    if (!place?.geometry?.location) return;
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    const address = place.formatted_address || place.name || '';
+    const next = { address, lat, lng };
+    setHouseDestination(next);
+    if (onDestinationSelected) onDestinationSelected({ lat, lng });
+  };
+
+  const handleDestinationTypeChange = (value) => {
+    setDestinationType(value);
+    setHospitalPlace(null);
+    setHouseDestination(null);
+    if (onDestinationSelected) onDestinationSelected(null);
+    const def = medicationDefaultForDestination(value);
+    if (def !== null) setMedicationEligible(def);
   };
 
   const handleSubmit = async (e) => {
@@ -57,6 +87,34 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
       alert('Select the destination type.');
       return;
     }
+
+    let destName = null;
+    let destLat = null;
+    let destLng = null;
+    let destClinicId = null;
+
+    if (destinationType === 'house') {
+      if (!houseDestination?.lat || !houseDestination?.lng || !houseDestination?.address) {
+        alert('Select the destination home address from the suggestions.');
+        return;
+      }
+      destName = houseDestination.address;
+      destLat = houseDestination.lat;
+      destLng = houseDestination.lng;
+    } else if (isHospitalDestinationType(destinationType)) {
+      const name = hospitalPlace?.name?.trim() || '';
+      const lat = hospitalPlace?.latitude;
+      const lng = hospitalPlace?.longitude;
+      if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        alert('Pick a destination clinic with beds or search Google Maps.');
+        return;
+      }
+      destName = name;
+      destLat = lat;
+      destLng = lng;
+      destClinicId = hospitalPlace?.clinicId || null;
+    }
+
     if (!scheduledAt) {
       alert('Choose the planned pickup date and time.');
       return;
@@ -97,8 +155,11 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
         scheduled_driver_acknowledged_at: null,
         assigned_clinic_id: clinicId,
         requested_at: new Date().toISOString(),
-        hospital_name: hospitalName.trim() || null,
+        hospital_name: destName,
         destination_type: destinationType,
+        destination_clinic_id: destClinicId,
+        destination_latitude: destLat,
+        destination_longitude: destLng,
         medication_service_eligible: medicationEligible,
       });
 
@@ -107,14 +168,16 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
       setPatientName('');
       setPatientId('');
       setLocation(null);
-      setHospitalName('');
       setDestinationType('');
+      setHospitalPlace(null);
+      setHouseDestination(null);
       setMedicationEligible(true);
       setScheduledAt('');
       setIsBedridden(true);
       setNotes('');
       setDriverId('');
       if (onLocationSelected) onLocationSelected(null);
+      if (onDestinationSelected) onDestinationSelected(null);
       if (onBookingCreated) onBookingCreated();
     } catch (err) {
       alert(err.message || 'Could not save scheduled booking.');
@@ -126,8 +189,8 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
   return (
     <form className="create-booking-form" onSubmit={handleSubmit} style={{ padding: '8px 4px 4px' }}>
       <p className="facility-muted" style={{ fontSize: '0.88rem', marginBottom: 14, lineHeight: 1.45 }}>
-        Assign a driver now. They see this in the driver app. Sound alerts begin ~30 minutes before pickup until they
-        acknowledge.
+        Assign a driver now. They see this in the driver app. Sound alerts begin ~1 hour before pickup and run for
+        about 5 minutes until they acknowledge.
       </p>
 
       <div className="input-group">
@@ -192,7 +255,7 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
         <label className="field-label">PICKUP ADDRESS</label>
         <Autocomplete
           apiKey={GOOGLE_MAPS_API_KEY}
-          onPlaceSelected={handlePlaceSelect}
+          onPlaceSelected={handlePickupSelect}
           options={{
             types: ['geocode'],
             componentRestrictions: { country: 'my' },
@@ -209,27 +272,11 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
       </div>
 
       <div className="input-group">
-        <label className="field-label">HOSPITAL NAME (OPTIONAL)</label>
-        <input
-          type="text"
-          className="modern-input"
-          value={hospitalName}
-          onChange={(e) => setHospitalName(e.target.value)}
-          placeholder="Receiving / referring clinic"
-        />
-      </div>
-
-      <div className="input-group">
-        <label className="field-label">DESTINATION</label>
+        <label className="field-label">DESTINATION TYPE</label>
         <select
           className="modern-select"
           value={destinationType}
-          onChange={(e) => {
-            const v = e.target.value;
-            setDestinationType(v);
-            const def = medicationDefaultForDestination(v);
-            if (def !== null) setMedicationEligible(def);
-          }}
+          onChange={(e) => handleDestinationTypeChange(e.target.value)}
           required
         >
           <option value="">Select…</option>
@@ -240,6 +287,61 @@ const CreateScheduledBooking = ({ clinicId, drivers = [], onBookingCreated, onLo
           ))}
         </select>
       </div>
+
+      {destinationType === 'house' && (
+        <div className="input-group">
+          <label className="field-label">DESTINATION ADDRESS</label>
+          <Autocomplete
+            apiKey={GOOGLE_MAPS_API_KEY}
+            onPlaceSelected={handleHouseDestinationSelect}
+            options={{
+              types: ['geocode'],
+              componentRestrictions: { country: 'my' },
+            }}
+            className="modern-input"
+            placeholder="Search destination home address…"
+            style={{ width: '100%', marginBottom: 22 }}
+          />
+          {houseDestination?.address && (
+            <p className="facility-muted" style={{ marginTop: -12, marginBottom: 16, fontSize: '0.85rem' }}>
+              {houseDestination.address}
+            </p>
+          )}
+        </div>
+      )}
+
+      {isHospitalDestinationType(destinationType) && (
+        <>
+          <ClinicsWithBedsPanel
+            clinics={clinics}
+            patientLat={location?.lat}
+            patientLng={location?.lng}
+            dispatchClinicId={clinicId}
+            selectedClinicId={hospitalPlace?.clinicId ?? null}
+            onSelectClinic={(place) => {
+              setHospitalPlace(place);
+              if (place?.latitude != null && place?.longitude != null && onDestinationSelected) {
+                onDestinationSelected({ lat: place.latitude, lng: place.longitude });
+              } else if (onDestinationSelected) {
+                onDestinationSelected(null);
+              }
+            }}
+          />
+          <HospitalDestinationField
+            value={hospitalPlace}
+            onChange={(place) => {
+              setHospitalPlace(place);
+              if (place?.latitude != null && place?.longitude != null && onDestinationSelected) {
+                onDestinationSelected({ lat: place.latitude, lng: place.longitude });
+              } else if (onDestinationSelected) {
+                onDestinationSelected(null);
+              }
+            }}
+            clinics={clinics}
+            compact
+          />
+        </>
+      )}
 
       <label className="auth-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <input

@@ -11,12 +11,16 @@ const IncomingMissionCard = ({ mission, viewerClinicId, onDispatch, onSaved }) =
   const [open, setOpen] = useState(false);
   const b = mission.booking;
   const isInboundTransfer = mission.kind === 'transfer';
+  const isClinicDispatch = mission.kind === 'clinic_dispatch';
   const patientSecured = b?.status === 'Picked Up';
   const showRoutingFields =
     !isInboundTransfer &&
-    patientSecured &&
-    mission.kind === 'patient_report' &&
-    Boolean(b?.driver_id);
+    Boolean(b?.driver_id) &&
+    (isClinicDispatch
+      ? Boolean(b?.destination_type)
+      : patientSecured && mission.kind === 'patient_report');
+  const routingEditable =
+    !isInboundTransfer && patientSecured && mission.ownsMission !== false;
   const awaitingDestination = showRoutingFields && !b?.destination_type;
   const emergencyLabel = b?.emergency_type
     ? incidentCategoryLabel(b.emergency_type)
@@ -60,7 +64,9 @@ const IncomingMissionCard = ({ mission, viewerClinicId, onDispatch, onSaved }) =
           <div className="incoming-mission-pills">
             <span className="facility-pill facility-pill--sm">{mission.status}</span>
             <span className="facility-pill eta facility-pill--sm">
-              {mission.kind === 'patient_report' ? mission.eta : `ETA ${mission.eta}`}
+              {mission.kind === 'patient_report' || isClinicDispatch
+                ? mission.eta
+                : `ETA ${mission.eta}`}
             </span>
           </div>
 
@@ -77,10 +83,10 @@ const IncomingMissionCard = ({ mission, viewerClinicId, onDispatch, onSaved }) =
             <MissionClinicalCard
               booking={b}
               compact
-              editable={mission.ownsMission !== false}
+              editable={routingEditable}
               viewerClinicId={viewerClinicId}
               showIntakeFields={mission.kind === 'patient_report' && !showRoutingFields}
-              showRoutingFields={showRoutingFields && mission.ownsMission !== false}
+              showRoutingFields={showRoutingFields && (isClinicDispatch || mission.ownsMission !== false)}
               onSaved={onSaved}
             />
           )}

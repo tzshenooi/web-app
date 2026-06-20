@@ -111,6 +111,9 @@ const ScheduledBookingsPanel = ({
         })
         .eq('id', booking.id);
       if (error) throw error;
+      if (booking.driver_id) {
+        await supabase.from('drivers').update({ status: 'Busy' }).eq('id', booking.driver_id);
+      }
       if (onActivate) onActivate(booking);
     } catch (err) {
       alert(err.message || 'Could not start mission.');
@@ -137,7 +140,7 @@ const ScheduledBookingsPanel = ({
           const busy = busyId === b.id;
           const assignedName = b.driver_id ? driverNameById[b.driver_id] : null;
           return (
-            <div key={b.id} className="unit-card-new incoming-mission-card" style={{ cursor: 'default', marginBottom: 10 }}>
+            <div key={b.id} className="unit-card-new incoming-mission-card scheduled-booking-card">
               <button
                 type="button"
                 className="incoming-mission-name-row"
@@ -150,30 +153,50 @@ const ScheduledBookingsPanel = ({
                 </span>
               </button>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, padding: '0 4px' }}>
-                <span className="facility-pill">{formatScheduledPickup(b.scheduled_at)}</span>
-                {b.is_bedridden ? <span className="facility-pill">Bedridden</span> : null}
-                {assignedName ? <span className="facility-pill">Driver: {assignedName}</span> : null}
-                {b.reporter_user_id ? <span className="facility-pill">Patient request</span> : null}
+              <div className="scheduled-booking-card__pills">
+                <span className="facility-pill facility-pill--sm">{formatScheduledPickup(b.scheduled_at)}</span>
+                {b.is_bedridden ? <span className="facility-pill facility-pill--sm">Bedridden</span> : null}
+                {assignedName ? (
+                  <span className="facility-pill facility-pill--sm">Driver: {assignedName}</span>
+                ) : null}
+                {b.reporter_user_id ? (
+                  <span className="facility-pill facility-pill--sm">Patient request</span>
+                ) : null}
               </div>
 
               {open && (
-                <div className="incoming-mission-details">
-                  <p className="facility-muted" style={{ fontSize: '0.85rem', margin: '8px 0' }}>
-                    {b.location || '—'}
-                  </p>
-                  <p className="facility-muted" style={{ fontSize: '0.82rem', margin: '0 0 10px' }}>
-                    ID: {b.patient_id || '—'} · Destination: {destinationLabel(b.destination_type)}
-                    {b.hospital_name ? ` · ${b.hospital_name}` : ''}
-                  </p>
-                  {b.notes ? (
-                    <p className="facility-muted" style={{ fontSize: '0.82rem', marginBottom: 10 }}>
-                      {b.notes}
-                    </p>
-                  ) : null}
+                <div className="incoming-mission-details scheduled-booking-card__details">
+                  <dl className="scheduled-booking-card__meta">
+                    <div className="mission-clinical-row mission-clinical-row--multiline">
+                      <dt>Pickup</dt>
+                      <dd>{b.location || '—'}</dd>
+                    </div>
+                    <div className="mission-clinical-row">
+                      <dt>Patient ID</dt>
+                      <dd>{b.patient_id || '—'}</dd>
+                    </div>
+                    <div className="mission-clinical-row">
+                      <dt>Destination</dt>
+                      <dd>
+                        {destinationLabel(b.destination_type)}
+                        {b.hospital_name ? (
+                          <>
+                            <br />
+                            <span className="scheduled-booking-card__dest-name">{b.hospital_name}</span>
+                          </>
+                        ) : null}
+                      </dd>
+                    </div>
+                    {b.notes ? (
+                      <div className="mission-clinical-row mission-clinical-row--multiline">
+                        <dt>Notes</dt>
+                        <dd className="mission-clinical-row__muted">{b.notes}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
 
                   {!b.driver_id ? (
-                    <div style={{ marginBottom: 10 }}>
+                    <div className="scheduled-booking-card__assign">
                       <label className="field-label">Assign driver</label>
                       <select
                         className="modern-select"
@@ -191,8 +214,7 @@ const ScheduledBookingsPanel = ({
                       </select>
                       <button
                         type="button"
-                        className="confirm-btn confirm-btn--no-margin"
-                        style={{ marginTop: 8 }}
+                        className="confirm-btn confirm-btn--no-margin scheduled-booking-card__assign-btn"
                         disabled={busy}
                         onClick={() => handleAssignDriver(b)}
                       >
@@ -201,7 +223,7 @@ const ScheduledBookingsPanel = ({
                     </div>
                   ) : null}
 
-                  <div className="confirm-btn-row">
+                  <div className="confirm-btn-row scheduled-booking-card__actions">
                     {b.driver_id ? (
                       <button
                         type="button"

@@ -15,7 +15,6 @@ export function formatScheduledPickup(iso) {
   if (!iso) return '—';
   try {
     return new Date(iso).toLocaleString('en-MY', {
-      weekday: 'short',
       dateStyle: 'medium',
       timeStyle: 'short',
     });
@@ -28,7 +27,6 @@ export function isActiveClinicMission(status) {
   return ACTIVE_CLINIC_MISSION_STATUSES.includes(status);
 }
 
-/** Labels for patient-report cards on clinic Incoming. */
 export function patientReportMissionDisplay(booking) {
   if (!booking?.driver_id) {
     return { statusLabel: 'New report', etaLabel: 'Awaiting dispatch' };
@@ -37,6 +35,25 @@ export function patientReportMissionDisplay(booking) {
     case 'Pending':
     case 'Assigned':
       return { statusLabel: 'Dispatched', etaLabel: 'Awaiting driver ack' };
+    case 'Accepted':
+    case 'En Route':
+      return { statusLabel: booking.status, etaLabel: 'En route to patient' };
+    case 'Picked Up':
+      return { statusLabel: 'Picked up', etaLabel: 'En route to destination' };
+    default:
+      return { statusLabel: booking.status || 'Active', etaLabel: 'In progress' };
+  }
+}
+
+/** Clinic dispatch / scheduled transport after mission start. */
+export function clinicDispatchMissionDisplay(booking) {
+  if (!booking?.driver_id) {
+    return { statusLabel: 'Scheduled', etaLabel: 'Awaiting dispatch' };
+  }
+  switch (booking.status) {
+    case 'Pending':
+    case 'Assigned':
+      return { statusLabel: booking.status, etaLabel: 'Awaiting driver ack' };
     case 'Accepted':
     case 'En Route':
       return { statusLabel: booking.status, etaLabel: 'En route to patient' };

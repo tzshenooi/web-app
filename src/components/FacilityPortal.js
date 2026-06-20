@@ -28,6 +28,7 @@ import {
   SCHEDULED_BOOKING_STATUS,
   UNKNOWN_PATIENT_ID,
   isActiveClinicMission,
+  clinicDispatchMissionDisplay,
   isScheduledBooking,
   patientReportMissionDisplay,
 } from '../constants/missionClinical';
@@ -504,6 +505,34 @@ const FacilityPortal = () => {
 
     const patientActiveIds = new Set(patientActive.map((m) => m.id));
 
+    const clinicDispatchActive = bookings
+      .filter(
+        (b) =>
+          !b.patient_report_id &&
+          !isScheduledBooking(b) &&
+          isActiveClinicMission(b.status) &&
+          String(b.assigned_clinic_id) === clinicId &&
+          b.driver_id &&
+          driverIdsAtClinic.includes(b.driver_id) &&
+          !patientActiveIds.has(b.id)
+      )
+      .map((b) => {
+        const { statusLabel, etaLabel } = clinicDispatchMissionDisplay(b);
+        const driver = fleetDrivers.find((d) => d.id === b.driver_id);
+        return {
+          id: b.id,
+          kind: 'clinic_dispatch',
+          patientName: b.patient_name || 'Patient',
+          status: statusLabel,
+          eta: etaLabel,
+          driverName: driver?.name || null,
+          booking: b,
+          ownsMission: true,
+        };
+      });
+
+    const clinicDispatchIds = new Set(clinicDispatchActive.map((m) => m.id));
+
     // Inbound transfers from other clinics only — not own patient-report missions headed to self.
     const transfersInbound = bookings
       .filter(
@@ -511,7 +540,8 @@ const FacilityPortal = () => {
           String(b.destination_clinic_id) === clinicId &&
           ['Assigned', 'Accepted', 'En Route', 'Picked Up'].includes(b.status) &&
           !(b.patient_report_id && String(b.assigned_clinic_id) === clinicId) &&
-          !patientActiveIds.has(b.id)
+          !patientActiveIds.has(b.id) &&
+          !clinicDispatchIds.has(b.id)
       )
       .map((b) => {
         const driver = fleetDrivers.find((d) => d.id === b.driver_id);
@@ -549,7 +579,7 @@ const FacilityPortal = () => {
         };
       });
 
-    return [...patientActive, ...transfersInbound];
+    return [...patientActive, ...clinicDispatchActive, ...transfersInbound];
   }, [bookings, fleetDrivers, selectedFacility, driverIdsAtClinic, allClinics]);
 
   const archivedRecordCount = useMemo(() => {
@@ -1239,6 +1269,7 @@ const FacilityPortal = () => {
               <CreateScheduledBooking
                 clinicId={selectedFacilityId}
                 drivers={drivers}
+                clinics={allClinics}
                 onLocationSelected={setScheduledPreviewLocation}
                 onBookingCreated={() => {
                   closeScheduledModal();

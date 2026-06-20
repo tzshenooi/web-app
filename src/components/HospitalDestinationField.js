@@ -25,7 +25,9 @@ const HospitalDestinationField = ({
   };
 
   const googleValue = value?.source === 'google' ? value : null;
-  const showGoogleChip = value?.source === 'google' && value?.name;
+  const showSelectedChip =
+    value?.name && (value?.source === 'google' || value?.source === 'registered');
+  const selectedTag = value?.source === 'registered' ? 'Clinic' : 'Maps';
 
   return (
     <div className={`hospital-destination-field${compact ? ' hospital-destination-field--compact' : ''}`}>
@@ -43,10 +45,10 @@ const HospitalDestinationField = ({
         onPlaceSelected={selectGooglePlace}
       />
 
-      {showGoogleChip ? (
+      {showSelectedChip ? (
         <div className="hospital-destination-field__selected" title={value.address || value.name}>
           <span className="hospital-destination-field__selected-name">{value.name}</span>
-          <span className="hospital-destination-field__tag">Maps</span>
+          <span className="hospital-destination-field__tag">{selectedTag}</span>
         </div>
       ) : null}
     </div>
